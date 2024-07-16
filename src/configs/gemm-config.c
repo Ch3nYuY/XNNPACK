@@ -798,7 +798,8 @@ static void init_f32_gemm_config(void) {
     f32_gemm_config.pack_gemm_gio = (xnn_packw_gemm_gio_ukernel_fn) xnn_pack_f32_gemm_gio_w;
     // f32_gemm_config.pack_gemm_goi = (xnn_packw_gemm_goi_ukernel_fn) xnn_x32_packw_gemm_goi_ukernel_x16__avx_u4;
     f32_gemm_config.pack_gemm_goi = (xnn_packw_gemm_goi_ukernel_fn) xnn_pack_f32_gemm_goi_w;
-    f32_gemm_config.mr = 5;
+    // f32_gemm_config.mr = 5;
+    f32_gemm_config.mr = 4;
     f32_gemm_config.nr = 24;
     // chenyu end
   #elif XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
