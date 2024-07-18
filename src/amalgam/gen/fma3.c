@@ -4477,7 +4477,7 @@ void xnn_f32_igemm_minmax_ukernel_5x16__fma3_broadcast_prfm(
     const union xnn_f32_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])
 {
   assert(mr != 0);
-  assert(mr <= 5);
+  assert(mr <= 4);
   assert(nc != 0);
   assert(kc != 0);
   assert(kc % sizeof(float) == 0);
@@ -4598,7 +4598,7 @@ void xnn_f32_igemm_minmax_ukernel_5x16__fma3_broadcast_prfm(
         // vacc4xGHIJKLMN = _mm256_fmadd_ps(va4, vbGHIJKLMN, vacc4xGHIJKLMN);
         k -= sizeof(float);
       } while (k != 0);
-      p -= 5 * sizeof(void*);
+      p -= 4 * sizeof(void*);
     } while (p != 0);
 
     const __m256 vmin = _mm256_load_ps(params->avx.min);
