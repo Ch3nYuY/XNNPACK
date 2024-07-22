@@ -3608,36 +3608,35 @@ void xnn_f32_gemm_minmax_ukernel_5x16__fma3_broadcast(
 
     size_t k = kc;
     do {
-      const __m256 va0 = _mm256_broadcast_ss(a0);
-      a0 += 1;
-      const __m256 va1 = _mm256_broadcast_ss(a1);
-      a1 += 1;
-      const __m256 va2 = _mm256_broadcast_ss(a2);
-      a2 += 1;
-      const __m256 va3 = _mm256_broadcast_ss(a3);
-      a3 += 1;
-
       const __m256 vb01234567 = _mm256_load_ps(w);
       const __m256 vb89ABCDEF = _mm256_load_ps(w + 8);
       const __m256 vbGHIJKLMN = _mm256_load_ps(w + 16);
       w += 24;
 
-      vacc0x01234567 = _mm256_fmadd_ps(va0, vb01234567, vacc0x01234567);
-      vacc0x89ABCDEF = _mm256_fmadd_ps(va0, vb89ABCDEF, vacc0x89ABCDEF);
-      vacc0xGHIJKLMN = _mm256_fmadd_ps(va0, vbGHIJKLMN, vacc0xGHIJKLMN);
+      __m256 va = _mm256_broadcast_ss(a0);
+      vacc0x01234567 = _mm256_fmadd_ps(va, vb01234567, vacc0x01234567);
+      vacc0x89ABCDEF = _mm256_fmadd_ps(va, vb89ABCDEF, vacc0x89ABCDEF);
+      vacc0xGHIJKLMN = _mm256_fmadd_ps(va, vbGHIJKLMN, vacc0xGHIJKLMN);
 
-      vacc1x01234567 = _mm256_fmadd_ps(va1, vb01234567, vacc1x01234567);
-      vacc1x89ABCDEF = _mm256_fmadd_ps(va1, vb89ABCDEF, vacc1x89ABCDEF);
-      vacc1xGHIJKLMN = _mm256_fmadd_ps(va1, vbGHIJKLMN, vacc1xGHIJKLMN);
+      va = _mm256_broadcast_ss(a1);
+      vacc1x01234567 = _mm256_fmadd_ps(va, vb01234567, vacc1x01234567);
+      vacc1x89ABCDEF = _mm256_fmadd_ps(va, vb89ABCDEF, vacc1x89ABCDEF);
+      vacc1xGHIJKLMN = _mm256_fmadd_ps(va, vbGHIJKLMN, vacc1xGHIJKLMN);
 
-      vacc2x01234567 = _mm256_fmadd_ps(va2, vb01234567, vacc2x01234567);
-      vacc2x89ABCDEF = _mm256_fmadd_ps(va2, vb89ABCDEF, vacc2x89ABCDEF);
-      vacc2xGHIJKLMN = _mm256_fmadd_ps(va2, vbGHIJKLMN, vacc2xGHIJKLMN);
+      va = _mm256_broadcast_ss(a2);
+      vacc2x01234567 = _mm256_fmadd_ps(va, vb01234567, vacc2x01234567);
+      vacc2x89ABCDEF = _mm256_fmadd_ps(va, vb89ABCDEF, vacc2x89ABCDEF);
+      vacc2xGHIJKLMN = _mm256_fmadd_ps(va, vbGHIJKLMN, vacc2xGHIJKLMN);
 
-      vacc3x01234567 = _mm256_fmadd_ps(va3, vb01234567, vacc3x01234567);
-      vacc3x89ABCDEF = _mm256_fmadd_ps(va3, vb89ABCDEF, vacc3x89ABCDEF);
-      vacc3xGHIJKLMN = _mm256_fmadd_ps(va3, vbGHIJKLMN, vacc3xGHIJKLMN);
+      va = _mm256_broadcast_ss(a3);
+      vacc3x01234567 = _mm256_fmadd_ps(va, vb01234567, vacc3x01234567);
+      vacc3x89ABCDEF = _mm256_fmadd_ps(va, vb89ABCDEF, vacc3x89ABCDEF);
+      vacc3xGHIJKLMN = _mm256_fmadd_ps(va, vbGHIJKLMN, vacc3xGHIJKLMN);
 
+      a0 += 1;
+      a1 += 1;
+      a2 += 1;
+      a3 += 1;
       k -= sizeof(float);
     } while (k != 0);
 
