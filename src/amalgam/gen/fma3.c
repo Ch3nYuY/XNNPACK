@@ -3612,6 +3612,8 @@ void xnn_f32_gemm_minmax_ukernel_5x16__fma3_broadcast(
       const __m256 vb89ABCDEF = _mm256_load_ps(w + 8);
       const __m256 vbGHIJKLMN = _mm256_load_ps(w + 16);
       w += 24;
+      // xnn_prefetch_to_l1(w + 1024);
+      xnn_prefetch_to_l1(w + 2048);
 
       __m256 va = _mm256_broadcast_ss(a0);
       vacc0x01234567 = _mm256_fmadd_ps(va, vb01234567, vacc0x01234567);
