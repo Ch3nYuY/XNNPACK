@@ -2228,6 +2228,13 @@ static void GEMMBenchmark(benchmark::State& state,
       /*mr=*/5, /*nr=*/16, /*kr=*/1, /*sr=*/1,
       benchmark::utils::CheckFMA3);
   }
+  static void f32_gemm_5x16_unrolling_8_prefetch__fma3_broadcast(benchmark::State& state, const char* net) {
+    GEMMBenchmark(state,
+      xnn_f32_gemm_minmax_ukernel_5x16_unrolling_8_prefetch__fma3_broadcast,
+      xnn_init_f32_minmax_avx_params,
+      /*mr=*/5, /*nr=*/16, /*kr=*/1, /*sr=*/1,
+      benchmark::utils::CheckFMA3);
+  }
   static void f32_gemm_6x16__fma3_broadcast(benchmark::State& state, const char* net) {
     GEMMBenchmark(state,
       xnn_f32_gemm_minmax_ukernel_6x16__fma3_broadcast,
