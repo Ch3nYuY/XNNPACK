@@ -133,9 +133,9 @@ http_archive(
 
 load("@rules_android_ndk//:rules.bzl", "android_ndk_repository")
 
-android_ndk_repository(name = "androidndk")
+# android_ndk_repository(name = "androidndk")
 
-register_toolchains("@androidndk//:all")
+# register_toolchains("@androidndk//:all")
 
 # Android SDK location and API is auto-detected from $ANDROID_HOME environment variable
-android_sdk_repository(name = "androidsdk")
+# android_sdk_repository(name = "androidsdk")
