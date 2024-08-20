@@ -5,12 +5,6 @@
 
 #pragma once
 
-#include "xnnpack.h"
-#include "xnnpack/common.h"
-#include "xnnpack/microfnptr.h"
-#include "xnnpack/microparams-init.h"
-#include "xnnpack/microparams.h"
-
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -23,13 +17,14 @@
 #include <random>
 #include <vector>
 
-#include "replicable_random_device.h"
 #include <gtest/gtest.h>
 #include <fp16/fp16.h>
-
-#if XNN_PLATFORM_JIT
-  #include "xnnpack/memory.h"
-#endif
+#include "xnnpack.h"
+#include "xnnpack/common.h"
+#include "xnnpack/microfnptr.h"
+#include "xnnpack/microparams-init.h"
+#include "xnnpack/microparams.h"
+#include "replicable_random_device.h"
 
 class VUnaryMicrokernelTester {
  public:
@@ -151,10 +146,10 @@ class VUnaryMicrokernelTester {
   void Test(xnn_f32_vrelu_ukernel_fn vrelu) const;
 
   void TestAbs(xnn_bf16_vabs_ukernel_fn vabs,
-            xnn_init_bf16_abs_params_fn init_params = nullptr) const;
+            xnn_init_bf16_default_params_fn init_params = nullptr) const;
 
   void TestAbs(xnn_f16_vabs_ukernel_fn vabs,
-            xnn_init_f16_abs_params_fn init_params = nullptr) const;
+            xnn_init_f16_default_params_fn init_params = nullptr) const;
 
   void TestAbs(xnn_f32_vabs_ukernel_fn vabs,
             xnn_init_f32_default_params_fn init_params = nullptr) const;
@@ -168,11 +163,17 @@ class VUnaryMicrokernelTester {
   void Test(xnn_f32_velu_ukernel_fn velu,
             xnn_init_f32_elu_params_fn init_params) const;
 
+  void TestExp(xnn_f32_vexp_ukernel_fn vexp,
+            xnn_init_f32_default_params_fn init_params = nullptr) const;
+
+  void TestGelu(xnn_f32_vgelu_ukernel_fn vgelu,
+            xnn_init_f32_default_params_fn init_params = nullptr) const;
+
   void Test(xnn_f16_vhswish_ukernel_fn vhswish,
-            xnn_init_f16_hswish_params_fn init_params) const;
+            xnn_init_f16_hswish_params_fn init_params = nullptr) const;
 
   void Test(xnn_f32_vhswish_ukernel_fn vhswish,
-            xnn_init_f32_hswish_params_fn init_params) const;
+            xnn_init_f32_hswish_params_fn init_params = nullptr) const;
 
   void Test(xnn_f16_vlrelu_ukernel_fn vlrelu,
             xnn_init_f16_lrelu_params_fn init_params) const;
@@ -184,7 +185,7 @@ class VUnaryMicrokernelTester {
             xnn_init_f32_default_params_fn init_params = nullptr) const;
 
   void TestNeg(xnn_f16_vneg_ukernel_fn vneg,
-            xnn_init_f16_neg_params_fn init_params = nullptr) const;
+            xnn_init_f16_default_params_fn init_params = nullptr) const;
 
   void TestNeg(xnn_f32_vneg_ukernel_fn vneg,
             xnn_init_f32_default_params_fn init_params = nullptr) const;
@@ -196,10 +197,10 @@ class VUnaryMicrokernelTester {
             xnn_init_f32_rnd_params_fn init_params = nullptr) const;
 
   void Test(xnn_f16_vsigmoid_ukernel_fn vsigmoid,
-            xnn_init_f16_sigmoid_params_fn init_params) const;
+            xnn_init_f16_sigmoid_params_fn init_params = nullptr) const;
 
   void Test(xnn_f32_vsigmoid_ukernel_fn vsigmoid,
-            xnn_init_f32_sigmoid_params_fn init_params) const;
+            xnn_init_f32_sigmoid_params_fn init_params = nullptr) const;
 
   void TestSqr(xnn_f16_vsqr_ukernel_fn vsqr,
             xnn_init_f16_default_params_fn init_params = nullptr) const;
@@ -235,11 +236,6 @@ class VUnaryMicrokernelTester {
             xnn_init_u8_minmax_params_fn init_params) const;
 
   void Test(xnn_u64_u32_vsqrtshift_ukernel_fn vsqrtshift) const;
-
-#if XNN_PLATFORM_JIT
-  void Test(xnn_vrelu_generator_fn generator, size_t k_unroll,
-            bool use_locals) const;
-#endif  // XNN_PLATFORM_JIT
 
  private:
   // Generic test function for `fp32` `vunary` kernels.

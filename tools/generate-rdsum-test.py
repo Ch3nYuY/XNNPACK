@@ -297,7 +297,9 @@ def generate_test_cases(ukernel, init_fn, requantization_type, primary_tile,
   """
   _, test_name = ukernel.split("_", 1)
   _, datatype, ukernel_type, _ = ukernel.split("_", 3)
-  test_args = [ukernel, init_fn]
+  test_args = [ukernel]
+  if init_fn is not None:
+    test_args.append(init_fn)
   if requantization_type:
     test_args.append("xnn_%s_requantize_%s" % \
       (datatype.lower(), requantization_type.lower()))
@@ -332,13 +334,12 @@ def main(args):
 //   Generator: {generator}
 
 
+#include <gtest/gtest.h>
 #include "xnnpack/common.h"
-#include "xnnpack/reduce.h"
 #include "xnnpack/isa-checks.h"
 #include "xnnpack/microparams-init.h"
-
+#include "xnnpack/reduce.h"
 #include "rdsum-microkernel-tester.h"
-#include <gtest/gtest.h>
 """.format(specification=options.spec, generator=sys.argv[0])
 
     for ukernel_spec in spec_yaml:

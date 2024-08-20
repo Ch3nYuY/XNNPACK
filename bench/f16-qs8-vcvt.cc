@@ -11,7 +11,6 @@
 #include <benchmark/benchmark.h>
 #include "bench/utils.h"
 #include "bench/vcvt-benchmark.h"
-
 #include "xnnpack.h"
 #include "xnnpack/common.h"
 #include "xnnpack/microfnptr.h"
@@ -71,49 +70,49 @@
 
 BENCHMARK_CAPTURE(f16_qs8_vcvt, scalar_fmagic_u1,
                   xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u1,
-                  xnn_init_f16_qs8_cvt_scalar_fmagic_params)
+                  xnn_init_f16_qs8_cvt_scalar_params)
   ->Apply(benchmark::utils::UnaryElementwiseParameters<uint16_t, int8_t>)
   ->UseRealTime();
 
 BENCHMARK_CAPTURE(f16_qs8_vcvt, scalar_fmagic_u2,
                   xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u2,
-                  xnn_init_f16_qs8_cvt_scalar_fmagic_params)
+                  xnn_init_f16_qs8_cvt_scalar_params)
   ->Apply(benchmark::utils::UnaryElementwiseParameters<uint16_t, int8_t>)
   ->UseRealTime();
 
 BENCHMARK_CAPTURE(f16_qs8_vcvt, scalar_fmagic_u3,
                   xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u3,
-                  xnn_init_f16_qs8_cvt_scalar_fmagic_params)
+                  xnn_init_f16_qs8_cvt_scalar_params)
   ->Apply(benchmark::utils::UnaryElementwiseParameters<uint16_t, int8_t>)
   ->UseRealTime();
 
 BENCHMARK_CAPTURE(f16_qs8_vcvt, scalar_fmagic_u4,
                   xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u4,
-                  xnn_init_f16_qs8_cvt_scalar_fmagic_params)
+                  xnn_init_f16_qs8_cvt_scalar_params)
   ->Apply(benchmark::utils::UnaryElementwiseParameters<uint16_t, int8_t>)
   ->UseRealTime();
 
 BENCHMARK_CAPTURE(f16_qs8_vcvt, scalar_imagic_u1,
                   xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u1,
-                  xnn_init_f16_qs8_cvt_scalar_imagic_params)
+                  xnn_init_f16_qs8_cvt_scalar_params)
   ->Apply(benchmark::utils::UnaryElementwiseParameters<uint16_t, int8_t>)
   ->UseRealTime();
 
 BENCHMARK_CAPTURE(f16_qs8_vcvt, scalar_imagic_u2,
                   xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u2,
-                  xnn_init_f16_qs8_cvt_scalar_imagic_params)
+                  xnn_init_f16_qs8_cvt_scalar_params)
   ->Apply(benchmark::utils::UnaryElementwiseParameters<uint16_t, int8_t>)
   ->UseRealTime();
 
 BENCHMARK_CAPTURE(f16_qs8_vcvt, scalar_imagic_u3,
                   xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u3,
-                  xnn_init_f16_qs8_cvt_scalar_imagic_params)
+                  xnn_init_f16_qs8_cvt_scalar_params)
   ->Apply(benchmark::utils::UnaryElementwiseParameters<uint16_t, int8_t>)
   ->UseRealTime();
 
 BENCHMARK_CAPTURE(f16_qs8_vcvt, scalar_imagic_u4,
                   xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u4,
-                  xnn_init_f16_qs8_cvt_scalar_imagic_params)
+                  xnn_init_f16_qs8_cvt_scalar_params)
   ->Apply(benchmark::utils::UnaryElementwiseParameters<uint16_t, int8_t>)
   ->UseRealTime();
 

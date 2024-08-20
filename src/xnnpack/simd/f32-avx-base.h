@@ -10,11 +10,12 @@
 // Portable SIMD wrapper headers including this file need to implement the
 // following wrappers themselves:
 //
+//   - xnn_cmpeq_f32
 //   - xnn_fmadd_f32
-//   - xnn_fnmadd_f32
 //   - xnn_fmsub_f32
-//   - xnn_shiftl_f32
-//   - xnn_shiftr_f32
+//   - xnn_fnmadd_f32
+//   - xnn_sll_f32
+//   - xnn_srl_f32
 
 #ifndef __XNNPACK_SRC_XNNPACK_SIMD_F32_AVX_BASE_H_
 #define __XNNPACK_SRC_XNNPACK_SIMD_F32_AVX_BASE_H_
@@ -87,8 +88,7 @@ static XNN_INLINE xnn_simd_f32_t xnn_abs_f32(xnn_simd_f32_t a) {
 }
 
 static XNN_INLINE xnn_simd_f32_t xnn_neg_f32(xnn_simd_f32_t a) {
-  XNN_SIMD_CONST_F32(vsign_mask, -0.0f);
-  return _mm256_xor_ps(a, vsign_mask);
+  return xnn_sub_f32(xnn_zero_f32(), a);
 }
 
 // Logical operations.

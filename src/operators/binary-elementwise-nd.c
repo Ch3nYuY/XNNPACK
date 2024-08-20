@@ -11,10 +11,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <fp16/fp16.h>
 #include "xnnpack.h"
 #include "xnnpack/allocator.h"
 #include "xnnpack/common.h"
 #include "xnnpack/compute.h"
+#include "xnnpack/config-types.h"
 #include "xnnpack/config.h"
 #include "xnnpack/log.h"
 #include "xnnpack/math.h"
@@ -22,8 +24,6 @@
 #include "xnnpack/operator-type.h"
 #include "xnnpack/operator.h"
 #include "xnnpack/params.h"
-
-#include <fp16/fp16.h>
 #include "pthreadpool.h"
 
 static void init_binary_elementwise_nd(
@@ -190,8 +190,9 @@ static enum xnn_status create_binary_elementwise_nd_f32(
   }
 
   union xnn_f32_minmax_params params;
-  assert(config->init.f32_minmax != NULL);
-  config->init.f32_minmax(&params, output_min, output_max);
+  if (config->init.f32_minmax != NULL) {
+    config->init.f32_minmax(&params, output_min, output_max);
+  }
 
   return create_binary_elementwise_nd(
     flags,
@@ -412,6 +413,19 @@ enum xnn_status xnn_create_divide_nd_f16(
     xnn_operator_type_divide_nd_f16,
     xnn_init_f16_vdiv_config(),
     divide_op_out);
+}
+
+enum xnn_status xnn_create_copysign_nd_f32(
+    uint32_t flags,
+    xnn_operator_t* copysign_op_out)
+{
+  return create_binary_elementwise_nd_f32(
+    -INFINITY,
+    INFINITY,
+    flags,
+    xnn_operator_type_copysign_nd_f32,
+    xnn_init_f32_vcopysign_config(),
+    copysign_op_out);
 }
 
 enum xnn_status xnn_create_divide_nd_f32(
@@ -743,6 +757,31 @@ enum xnn_status xnn_create_squared_difference_nd_f32(
     &f32_vsqrdiff_config->minmax,
     squared_difference_op_out);
 }
+
+
+enum xnn_status xnn_create_multiply_nd_s32(
+    uint32_t flags,
+    xnn_operator_t* multiply_op_out)
+{
+  const struct xnn_binary_elementwise_config* s32_multiply_config = xnn_init_s32_vmul_config();
+  if (s32_multiply_config == NULL) {
+    xnn_log_error("failed to create %s operator: unsupported hardware configuration",
+      xnn_operator_type_to_string(xnn_operator_type_multiply_nd_s32));
+    return xnn_status_unsupported_hardware;
+  }
+
+  union xnn_s32_default_params params;
+
+  return create_binary_elementwise_nd(
+    flags,
+    &params,
+    &params,
+    sizeof(params),
+    xnn_operator_type_multiply_nd_s32,
+    &s32_multiply_config->linear,
+    multiply_op_out);
+}
+
 
 enum xnn_status xnn_create_subtract_nd_f16(
     float output_min,
@@ -1286,6 +1325,21 @@ enum xnn_status xnn_reshape_divide_nd_f32(
     threadpool);
 }
 
+enum xnn_status xnn_reshape_copysign_nd_f32(
+    xnn_operator_t copysign_op,
+    size_t num_mag_dims,
+    const size_t* mag_shape,
+    size_t num_sign_dims,
+    const size_t* sign_shape,
+    pthreadpool_t threadpool)
+{
+  return reshape_binary_elementwise_nd_f32(
+    copysign_op, xnn_operator_type_copysign_nd_f32,
+    num_mag_dims, mag_shape,
+    num_sign_dims, sign_shape,
+    threadpool);
+}
+
 enum xnn_status xnn_reshape_maximum_nd_f16(
     xnn_operator_t maximum_op,
     size_t num_input1_dims,
@@ -1440,6 +1494,26 @@ enum xnn_status xnn_reshape_squared_difference_nd_f32(
     squared_difference_op, xnn_operator_type_squared_difference_nd_f32,
     num_input1_dims, input1_shape,
     num_input2_dims, input2_shape,
+    threadpool);
+}
+
+
+enum xnn_status xnn_reshape_multiply_nd_s32(
+    xnn_operator_t mul_op,
+    size_t num_input1_dims,
+    const size_t* input1_shape,
+    size_t num_input2_dims,
+    const size_t* input2_shape,
+    pthreadpool_t threadpool)
+{
+
+  return reshape_binary_elementwise_nd(
+    mul_op, xnn_operator_type_multiply_nd_s32,
+    num_input1_dims, input1_shape,
+    num_input2_dims, input2_shape,
+    /*log2_element_size=*/XNN_LOG2_SIZEOF_INT32_T,
+    &mul_op->params.s32_default, sizeof(mul_op->params.s32_default),
+    &mul_op->params.s32_default, sizeof(mul_op->params.s32_default),
     threadpool);
 }
 
@@ -1618,6 +1692,17 @@ enum xnn_status xnn_setup_divide_nd_f32(
     input1, input2, output);
 }
 
+enum xnn_status xnn_setup_copysign_nd_f32(
+    xnn_operator_t copysign_op,
+    const float* mag,
+    const float* sign,
+    float* output)
+{
+  return setup_binary_elementwise_nd(
+    copysign_op, xnn_operator_type_copysign_nd_f32,
+    mag, sign, output);
+}
+
 enum xnn_status xnn_setup_maximum_nd_f16(
     xnn_operator_t maximum_op,
     const void* input1,
@@ -1738,6 +1823,19 @@ enum xnn_status xnn_setup_subtract_nd_f16(
     subtract_op, xnn_operator_type_subtract_nd_f16,
     input1, input2, output);
 }
+
+
+enum xnn_status xnn_setup_multiply_nd_s32(
+    xnn_operator_t mul_op,
+    const int32_t* input1,
+    const int32_t* input2,
+    int32_t* output)
+{
+  return setup_binary_elementwise_nd(
+    mul_op, xnn_operator_type_multiply_nd_s32,
+    input1, input2, output);
+}
+
 
 enum xnn_status xnn_setup_subtract_nd_f32(
     xnn_operator_t subtract_op,
@@ -2114,6 +2212,7 @@ enum xnn_status xnn_run_squared_difference_nd_f32(
     flags,
     threadpool);
 }
+
 
 enum xnn_status xnn_run_add_nd_qs8(
   size_t num_input1_dims,

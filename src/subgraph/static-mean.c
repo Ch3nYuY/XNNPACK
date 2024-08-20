@@ -17,7 +17,6 @@
 #include "xnnpack/operator.h"
 #include "xnnpack/subgraph-validation.h"
 #include "xnnpack/subgraph.h"
-
 #include "pthreadpool.h"
 
 static enum xnn_status create_mean_operator(
@@ -240,14 +239,6 @@ enum xnn_status xnn_define_static_mean(
         xnn_node_type_to_string(xnn_node_type_static_mean), output_id,
         xnn_datatype_to_string(output_value->datatype), output_value->datatype);
       return xnn_status_invalid_parameter;
-  }
-
-  if (num_reduction_axes > input_value->shape.num_dims) {
-    xnn_log_error(
-      "failed to define %s operator with %zu reduction axes: "
-      "the number of reduction axes must not exceed the number of input dimensions %zu",
-      xnn_node_type_to_string(xnn_node_type_static_mean), num_reduction_axes, input_value->shape.num_dims);
-    return xnn_status_invalid_parameter;
   }
 
   if (num_reduction_axes == 0) {

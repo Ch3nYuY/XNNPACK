@@ -51,15 +51,19 @@ def split_ukernel_name(name):
 
 CVT_BENCHMARK_TEMPLATE = """\
 BENCHMARK_CAPTURE(${BENCHMARK_FN}, ${BENCHMARK_NAME},
-                  ${UKERNEL_NAME},
                   $if INIT_FN and ISA_CHECK:
+                    ${UKERNEL_NAME},
                     ${INIT_FN},
                     benchmark::utils::${ISA_CHECK})
                   $elif INIT_FN:
+                    ${UKERNEL_NAME},
                     ${INIT_FN})
                   $elif ISA_CHECK:
+                    ${UKERNEL_NAME},
                     nullptr /* init params */,
                     benchmark::utils::${ISA_CHECK})
+                  $else:
+                    ${UKERNEL_NAME})
   ->Apply(benchmark::utils::UnaryElementwiseParameters<${INPUT_CTYPE}, ${OUTPUT_CTYPE}>)
   ->UseRealTime();
 """
@@ -384,10 +388,8 @@ def main(args):
 #include <limits>
 
 #include <gtest/gtest.h>
-
 #include "xnnpack/common.h"
 #include "xnnpack/isa-checks.h"
-
 #include "xnnpack/vcvt.h"
 #include "vcvt-microkernel-tester.h"
 """.format(specification=options.spec, generator=sys.argv[0])
@@ -406,7 +408,6 @@ def main(args):
 #include <benchmark/benchmark.h>
 #include "bench/utils.h"
 #include "bench/vcvt-benchmark.h"
-
 #include "xnnpack.h"
 #include "xnnpack/common.h"
 #include "xnnpack/microfnptr.h"

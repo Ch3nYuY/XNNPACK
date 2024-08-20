@@ -12,7 +12,6 @@
 #include "bench/bgemm.h"
 #include "bench/packw-benchmark.h"
 #include "bench/utils.h"
-
 #include "xnnpack/common.h"
 #include "xnnpack/hardware-config.h"
 #include "xnnpack/packw.h"
@@ -251,6 +250,20 @@ static void x16_packw_gemm_goi_ukernel_x16__scalar_int_u4(benchmark::State& stat
     /*nr=*/16, /*kr=*/1, /*sr=*/1);
 }
 BENCHMARK_BGEMM(x16_packw_gemm_goi_ukernel_x16__scalar_int_u4)
+
+static void x16_packw_gemm_goi_ukernel_x32__scalar_int_u4(benchmark::State& state, const char* net) {
+  x16_packw(state,
+    xnn_x16_packw_gemm_goi_ukernel_x32__scalar_int_u4,
+    /*nr=*/32, /*kr=*/1, /*sr=*/1);
+}
+BENCHMARK_BGEMM(x16_packw_gemm_goi_ukernel_x32__scalar_int_u4)
+
+static void x16_packw_gemm_goi_ukernel_x64__scalar_int_u4(benchmark::State& state, const char* net) {
+  x16_packw(state,
+    xnn_x16_packw_gemm_goi_ukernel_x64__scalar_int_u4,
+    /*nr=*/64, /*kr=*/1, /*sr=*/1);
+}
+BENCHMARK_BGEMM(x16_packw_gemm_goi_ukernel_x64__scalar_int_u4)
 
 #ifndef XNNPACK_BENCHMARK_NO_MAIN
 BENCHMARK_MAIN();

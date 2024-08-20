@@ -206,6 +206,17 @@ bool CheckAVX512FP16(benchmark::State& state);
 // If AVX-VNNI extension is unsupported, report error in benchmark state, and return false.
 bool CheckAVXVNNI(benchmark::State& state);
 
+// Check if x86 AVX256SKX extension is supported.
+// If AVX256SKX extension is unsupported, report error in benchmark state, and return false.
+bool CheckAVX256SKX(benchmark::State& state);
+
+// Check if x86 AVXVNNI + AVX10 or AVX512 is supported
+// If VNNI or SKX-level AVX256 extensions are unsupported, report error in benchmark state, and return false.
+bool CheckAVX256VNNI(benchmark::State& state);
+
+// Check if x86 VNNI + GFNI + AVX10 or AVX512 is supported
+bool CheckAVX256VNNIGFNI(benchmark::State& state);
+
 // Check if Hexagon HVX extension is supported.
 // If HVX is unsupported, report error in benchmark state, and return false.
 bool CheckHVX(benchmark::State& state);
@@ -217,6 +228,10 @@ bool CheckWAsmPSHUFB(benchmark::State& state);
 // Check if SDOT instruction is available in WAsm Relaxed SIMD as Relaxed Integer Dot Product with Accumulation.
 // If WAsm SDOT is unsupported, report error in benchmark state, and return false.
 bool CheckWAsmSDOT(benchmark::State& state);
+
+// Check if USDOT instruction is available in WAsm Relaxed SIMD as Relaxed Integer Dot Product with Accumulation.
+// If WAsm USDOT is unsupported, report error in benchmark state, and return false.
+bool CheckWAsmUSDOT(benchmark::State& state);
 
 // Check if BLENDVPS instruction is available in WAsm Relaxed SIMD as Relaxed Lane Select.
 // If WAsm BLENDVPS is unsupported, report error in benchmark state, and return false.
@@ -237,18 +252,6 @@ inline T Doz(T a, T b) {
   return a >= b ? a - b : T(0);
 }
 
-#if XNN_PLATFORM_JIT
-
-// A struct that uses RAII pattern to allocate and release code memory.
-struct CodeMemoryHelper {
-  CodeMemoryHelper();
-  ~CodeMemoryHelper();
-
-  xnn_code_buffer buffer;
-  xnn_status status;
-};
-
-#endif  // XNN_PLATFORM_JIT
 
 }  // namespace utils
 }  // namespace benchmark

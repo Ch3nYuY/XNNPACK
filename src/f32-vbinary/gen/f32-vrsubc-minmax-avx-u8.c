@@ -28,8 +28,12 @@ void xnn_f32_vrsubc_minmax_ukernel__avx_u8(
   assert(input_b != NULL);
   assert(output != NULL);
 
-  const __m256 voutput_min = _mm256_load_ps(params->avx.min);
-  const __m256 voutput_max = _mm256_load_ps(params->avx.max);
+  static const int32_t mask_table[14] = {-1, -1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0};
+
+  const __m256 voutput_min = _mm256_set1_ps(params->avx.min);
+  const __m256 voutput_max = _mm256_set1_ps(params->avx.max);
+  XNN_FORCE_REALIZATION(voutput_min);
+  XNN_FORCE_REALIZATION(voutput_max);
   const __m256 vb = _mm256_broadcast_ss(input_b);
 
   for (; batch >= 8 * sizeof(float); batch -= 8 * sizeof(float)) {
@@ -45,7 +49,7 @@ void xnn_f32_vrsubc_minmax_ukernel__avx_u8(
   if XNN_UNLIKELY(batch != 0) {
     assert(batch >= 1 * sizeof(float));
     assert(batch <= 7 * sizeof(float));
-    const __m256i vmask = _mm256_loadu_si256((const __m256i*) ((uintptr_t) &params->avx.mask_table[7] - batch));
+    const __m256i vmask = _mm256_loadu_si256((const __m256i*) ((uintptr_t) &mask_table[7] - batch));
 
     __m256 vacc = _mm256_maskload_ps(input_a, vmask);
 

@@ -5,22 +5,23 @@
 
 #pragma once
 
-#include "xnnpack.h"
-#include "xnnpack/microfnptr.h"
-#include "xnnpack/microparams-init.h"
-#include "xnnpack/microparams.h"
-#include "xnnpack/requantization.h"
-
 #include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 
+#include "xnnpack.h"
+#include "xnnpack/microfnptr.h"
+#include "xnnpack/microparams-init.h"
+#include "xnnpack/microparams.h"
+#include "xnnpack/requantization.h"
+
 class VBinaryMicrokernelTester {
  public:
   enum class OpType {
     Add,
+    CopySign,
     Div,
     Max,
     Min,
@@ -127,6 +128,9 @@ class VBinaryMicrokernelTester {
 
   void Test(xnn_f32_vbinary_ukernel_fn vbinary, OpType op_type,
             xnn_init_f32_default_params_fn init_params = nullptr) const;
+
+  void Test(xnn_s32_vbinary_ukernel_fn vbinary, OpType op_type,
+            xnn_init_s32_default_params_fn init_params = nullptr) const;
 
   void Test(xnn_f32_vbinary_relu_ukernel_fn vbinary_relu, OpType op_type) const;
 

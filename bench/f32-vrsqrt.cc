@@ -10,17 +10,14 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "xnnpack.h"
-#include "xnnpack/aligned-allocator.h"
+#include <benchmark/benchmark.h>
+#include "bench/f32-vunary-benchmark.h"
+#include "bench/utils.h"
 #include "xnnpack/common.h"
 #include "xnnpack/microfnptr.h"
 #include "xnnpack/microparams-init.h"
 #include "xnnpack/microparams.h"
 #include "xnnpack/vunary.h"
-
-#include "bench/f32-vunary-benchmark.h"
-#include "bench/utils.h"
-#include <benchmark/benchmark.h>
 
 void f32_vrsqrt(benchmark::State& state, xnn_f32_vrsqrt_ukernel_fn ukernel,
               xnn_init_f32_rsqrt_params_fn init_params = nullptr,
@@ -48,6 +45,27 @@ BENCHMARK_CAPTURE(f32_vrsqrt, scalar_rsqrt_u4,
                   /*init_params=*/nullptr)
   ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
   ->UseRealTime();
+#if XNN_ENABLE_RISCV_VECTOR && XNN_ARCH_RISCV
+  BENCHMARK_CAPTURE(f32_vrsqrt, rvv_rsqrt_u1v,
+                    xnn_f32_vrsqrt_ukernel__rvv_rsqrt_u1v,
+                    /*init_params=*/nullptr,
+                    benchmark::utils::CheckRVV)
+    ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
+    ->UseRealTime();
+  BENCHMARK_CAPTURE(f32_vrsqrt, rvv_rsqrt_u2v,
+                    xnn_f32_vrsqrt_ukernel__rvv_rsqrt_u2v,
+                    /*init_params=*/nullptr,
+                    benchmark::utils::CheckRVV)
+    ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
+    ->UseRealTime();
+  BENCHMARK_CAPTURE(f32_vrsqrt, rvv_rsqrt_u4v,
+                    xnn_f32_vrsqrt_ukernel__rvv_rsqrt_u4v,
+                    /*init_params=*/nullptr,
+                    benchmark::utils::CheckRVV)
+    ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
+    ->UseRealTime();
+#endif  // XNN_ENABLE_RISCV_VECTOR && XNN_ARCH_RISCV
+
 #if XNN_ARCH_ARM || XNN_ARCH_ARM64
   BENCHMARK_CAPTURE(f32_vrsqrt, neon_rsqrt_u4,
                     xnn_f32_vrsqrt_ukernel__neon_rsqrt_u4,
@@ -72,70 +90,70 @@ BENCHMARK_CAPTURE(f32_vrsqrt, scalar_rsqrt_u4,
 #if XNN_ARCH_X86 || XNN_ARCH_X86_64
   BENCHMARK_CAPTURE(f32_vrsqrt, sse_rsqrt_u4,
                     xnn_f32_vrsqrt_ukernel__sse_rsqrt_u4,
-                    xnn_init_f32_rsqrt_sse_params)
+                    /*init_params=*/nullptr)
     ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
     ->UseRealTime();
   BENCHMARK_CAPTURE(f32_vrsqrt, sse_rsqrt_u8,
                     xnn_f32_vrsqrt_ukernel__sse_rsqrt_u8,
-                    xnn_init_f32_rsqrt_sse_params)
+                    /*init_params=*/nullptr)
     ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
     ->UseRealTime();
   BENCHMARK_CAPTURE(f32_vrsqrt, sse_rsqrt_u16,
                     xnn_f32_vrsqrt_ukernel__sse_rsqrt_u16,
-                    xnn_init_f32_rsqrt_sse_params)
+                    /*init_params=*/nullptr)
     ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
     ->UseRealTime();
   BENCHMARK_CAPTURE(f32_vrsqrt, avx_rsqrt_u8,
                     xnn_f32_vrsqrt_ukernel__avx_rsqrt_u8,
-                    xnn_init_f32_rsqrt_avx_params,
+                    /*init_params=*/nullptr,
                     benchmark::utils::CheckAVX)
     ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
     ->UseRealTime();
   BENCHMARK_CAPTURE(f32_vrsqrt, avx_rsqrt_u16,
                     xnn_f32_vrsqrt_ukernel__avx_rsqrt_u16,
-                    xnn_init_f32_rsqrt_avx_params,
+                    /*init_params=*/nullptr,
                     benchmark::utils::CheckAVX)
     ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
     ->UseRealTime();
   BENCHMARK_CAPTURE(f32_vrsqrt, avx_rsqrt_u32,
                     xnn_f32_vrsqrt_ukernel__avx_rsqrt_u32,
-                    xnn_init_f32_rsqrt_avx_params,
+                    /*init_params=*/nullptr,
                     benchmark::utils::CheckAVX)
     ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
     ->UseRealTime();
   BENCHMARK_CAPTURE(f32_vrsqrt, fma3_rsqrt_u8,
                     xnn_f32_vrsqrt_ukernel__fma3_rsqrt_u8,
-                    xnn_init_f32_rsqrt_fma3_params,
+                    /*init_params=*/nullptr,
                     benchmark::utils::CheckFMA3)
     ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
     ->UseRealTime();
   BENCHMARK_CAPTURE(f32_vrsqrt, fma3_rsqrt_u16,
                     xnn_f32_vrsqrt_ukernel__fma3_rsqrt_u16,
-                    xnn_init_f32_rsqrt_fma3_params,
+                    /*init_params=*/nullptr,
                     benchmark::utils::CheckFMA3)
     ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
     ->UseRealTime();
   BENCHMARK_CAPTURE(f32_vrsqrt, fma3_rsqrt_u32,
                     xnn_f32_vrsqrt_ukernel__fma3_rsqrt_u32,
-                    xnn_init_f32_rsqrt_fma3_params,
+                    /*init_params=*/nullptr,
                     benchmark::utils::CheckFMA3)
     ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
     ->UseRealTime();
   BENCHMARK_CAPTURE(f32_vrsqrt, avx512f_rsqrt_u16,
                     xnn_f32_vrsqrt_ukernel__avx512f_rsqrt_u16,
-                    xnn_init_f32_rsqrt_avx512_params,
+                    /*init_params=*/nullptr,
                     benchmark::utils::CheckAVX512F)
     ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
     ->UseRealTime();
   BENCHMARK_CAPTURE(f32_vrsqrt, avx512f_rsqrt_u32,
                     xnn_f32_vrsqrt_ukernel__avx512f_rsqrt_u32,
-                    xnn_init_f32_rsqrt_avx512_params,
+                    /*init_params=*/nullptr,
                     benchmark::utils::CheckAVX512F)
     ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
     ->UseRealTime();
   BENCHMARK_CAPTURE(f32_vrsqrt, avx512f_rsqrt_u64,
                     xnn_f32_vrsqrt_ukernel__avx512f_rsqrt_u64,
-                    xnn_init_f32_rsqrt_avx512_params,
+                    /*init_params=*/nullptr,
                     benchmark::utils::CheckAVX512F)
     ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
     ->UseRealTime();

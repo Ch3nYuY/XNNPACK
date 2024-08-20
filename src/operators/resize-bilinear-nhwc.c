@@ -4,7 +4,6 @@
 // LICENSE file in the root directory of this source tree.
 
 #include <assert.h>
-#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -14,6 +13,7 @@
 #include "xnnpack/allocator.h"
 #include "xnnpack/common.h"
 #include "xnnpack/compute.h"
+#include "xnnpack/config-types.h"
 #include "xnnpack/config.h"
 #include "xnnpack/indirection.h"
 #include "xnnpack/log.h"
@@ -22,7 +22,6 @@
 #include "xnnpack/operator-type.h"
 #include "xnnpack/operator.h"
 #include "xnnpack/params.h"
-
 #include "pthreadpool.h"
 
 static enum xnn_status create_resize_bilinear2d_nhwc(
@@ -34,38 +33,33 @@ static enum xnn_status create_resize_bilinear2d_nhwc(
     xnn_operator_t* resize_op_out)
 {
   xnn_operator_t resize_op = NULL;
-  enum xnn_status status = xnn_status_uninitialized;
 
   if ((xnn_params.init_flags & XNN_INIT_FLAG_XNNPACK) == 0) {
     xnn_log_error("failed to create %s operator: XNNPACK is not initialized",
       xnn_operator_type_to_string(operator_type));
-    goto error;
+    return xnn_status_uninitialized;
   }
-
-  status = xnn_status_invalid_parameter;
 
   if (output_width == 0 || output_height == 0) {
     xnn_log_error(
       "failed to reshape %s operator with %zux%zu output: output dimensions must be non-zero",
-      xnn_operator_type_to_string(resize_op->type), output_width, output_height);
+      xnn_operator_type_to_string(operator_type), output_width, output_height);
     return xnn_status_invalid_parameter;
   }
 
   if (max(output_width, output_height) >= 16777216) {
     xnn_log_error(
       "failed to reshape %s operator with %zux%zu output: output dimensions must be below 2**24",
-      xnn_operator_type_to_string(resize_op->type), output_width, output_height);
+      xnn_operator_type_to_string(operator_type), output_width, output_height);
     return xnn_status_unsupported_parameter;
   }
-
-  status = xnn_status_out_of_memory;
 
   resize_op = xnn_allocate_zero_simd_memory(sizeof(struct xnn_operator));
   if (resize_op == NULL) {
     xnn_log_error(
       "failed to allocate %zu bytes for %s operator descriptor",
       sizeof(struct xnn_operator), xnn_operator_type_to_string(operator_type));
-    goto error;
+    return xnn_status_out_of_memory;
   }
 
   resize_op->output_height = output_height;
@@ -79,10 +73,6 @@ static enum xnn_status create_resize_bilinear2d_nhwc(
 
   *resize_op_out = resize_op;
   return xnn_status_success;
-
-error:
-  xnn_delete_operator(resize_op);
-  return status;
 }
 
 enum xnn_status xnn_create_resize_bilinear2d_nhwc_f16(
@@ -248,7 +238,9 @@ static enum xnn_status reshape_resize_bilinear2d_nhwc(
 
   size_t resize_bilinear_compute_index = 0;
   if (enable_transient_indirection) {
-    *workspace_size = indirection_buffer_size + packed_weights_size;
+    // Round up to a multiple of pointer size
+    const size_t indirect_input_offset = (packed_weights_size + sizeof(void*) - 1) & ~(sizeof(void*) - 1);
+    *workspace_size = indirection_buffer_size + indirect_input_offset;
     *workspace_alignment = XNN_ALLOCATION_ALIGNMENT;
 
     resize_bilinear_compute_index++;
@@ -259,7 +251,7 @@ static enum xnn_status reshape_resize_bilinear2d_nhwc(
       .align_corners = !!(resize_op->flags & XNN_FLAG_ALIGN_CORNERS),
       .tensorflow_legacy_mode = !!(resize_op->flags & XNN_FLAG_TENSORFLOW_LEGACY_MODE),
       .indirection_init = indirection_init,
-      .packed_weight_size = packed_weights_size,
+      .indirect_input_offset = indirect_input_offset,
     };
     resize_op->compute[0].type = xnn_parallelization_type_1d_tile_1d;
     resize_op->compute[0].context_offset = offsetof(struct xnn_operator, context.resize_nhwc_indirection_init) - offsetof(struct xnn_operator, context);
@@ -509,8 +501,10 @@ static enum xnn_status setup_resize_bilinear2d_nhwc(
   const size_t output_width = resize_op->context.resize_nhwc_indirection_init.output_width;
   const size_t packed_weights_size = (output_height * output_width * 2) << log2_weight_element_size;
   if (resize_op->flags & XNN_FLAG_TRANSIENT_INDIRECTION_BUFFER) {
+    // indirect_input should start at a multiple of pointer size to avoid ubsan failures
+    const size_t indirect_input_offset = (packed_weights_size + sizeof(void*) - 1) & ~(sizeof(void*) - 1);
     resize_op->context.resize_bilinear.packed_weights = (const void*) workspace;
-    resize_op->context.resize_bilinear.indirect_input = (const void**) ((uintptr_t) workspace + packed_weights_size);
+    resize_op->context.resize_bilinear.indirect_input = (const void**) ((uintptr_t) workspace + indirect_input_offset);
     resize_op->context.resize_nhwc_indirection_init.buffer = (const void**) workspace;
     resize_op->context.resize_nhwc_indirection_init.input = input;
   } else {

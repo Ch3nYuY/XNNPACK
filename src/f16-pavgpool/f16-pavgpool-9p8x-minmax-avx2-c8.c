@@ -7,7 +7,12 @@
 
 #include <immintrin.h>
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include "xnnpack/common.h"
 #include "xnnpack/intrinsics-polyfill.h"
+#include "xnnpack/microparams.h"
 #include "xnnpack/pavgpool.h"
 
 
@@ -29,8 +34,10 @@ void xnn_f16_pavgpool_minmax_ukernel_9p8x__avx2_c8(
   assert(kernel_elements > 9);
   assert(channels != 0);
 
-  const __m256 voutput_min = _mm256_load_ps(params->avx.min);
-  const __m256 voutput_max = _mm256_load_ps(params->avx.max);
+  const __m256 voutput_min = _mm256_set1_ps(params->avx.min);
+  const __m256 voutput_max = _mm256_set1_ps(params->avx.max);
+  XNN_FORCE_REALIZATION(voutput_min);
+  XNN_FORCE_REALIZATION(voutput_max);
 
   uint16_t* o = (uint16_t*) output;
   do {

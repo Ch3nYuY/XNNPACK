@@ -23,10 +23,12 @@ typedef v128_t xnn_simd_f32_t;
 #define xnn_simd_bytes_f32 (xnn_simd_size_f32 * sizeof(float))
 
 #define XNN_SIMD_CONST_F32(var, val) \
-  static const __f32x4 var = {(val), (val), (val), (val)};
+  static const xnn_simd_f32_t var =  \
+      (xnn_simd_f32_t)((__f32x4){(val), (val), (val), (val)});
 
 #define XNN_SIMD_CONST_U32(var, val) \
-  static const __u32x4 var = {(val), (val), (val), (val)};
+  static const xnn_simd_f32_t var =  \
+      (xnn_simd_f32_t)((__u32x4){(val), (val), (val), (val)});
 
 // Whether or not this architecture has native fused multiply-add support.
 #define XNN_SIMD_HAS_NATIVE_FMA 0
@@ -112,14 +114,21 @@ static XNN_INLINE xnn_simd_f32_t xnn_xor_f32(xnn_simd_f32_t a,
   return wasm_v128_xor(a, b);
 }
 
-static XNN_INLINE xnn_simd_f32_t xnn_shiftl_f32(xnn_simd_f32_t a,
-                                                uint8_t bits) {
+static XNN_INLINE xnn_simd_f32_t xnn_sll_f32(xnn_simd_f32_t a, uint8_t bits) {
   return wasm_i32x4_shl(a, bits);
 }
 
-static XNN_INLINE xnn_simd_f32_t xnn_shiftr_f32(xnn_simd_f32_t a,
-                                                uint8_t bits) {
+static XNN_INLINE xnn_simd_f32_t xnn_srl_f32(xnn_simd_f32_t a, uint8_t bits) {
   return wasm_u32x4_shr(a, bits);
+}
+
+static XNN_INLINE xnn_simd_f32_t xnn_sra_f32(xnn_simd_f32_t a, uint8_t bits) {
+  return wasm_i32x4_shr(a, bits);
+}
+
+static XNN_INLINE xnn_simd_f32_t xnn_cmpeq_f32(xnn_simd_f32_t a,
+                                               xnn_simd_f32_t b) {
+  return wasm_f32x4_eq(a, b);
 }
 
 // Special functions.

@@ -19,7 +19,11 @@ load(
     "xnnpack_microkernel_cc_library",
     "xnnpack_min_size_copts",
     "xnnpack_msvc_std_copts",
-    "xnnpack_simd_archs",
+    "xnnpack_simd_f16_archs",
+    "xnnpack_simd_f32_archs",
+    "xnnpack_simd_s16_archs",
+    "xnnpack_simd_s32_archs",
+    "xnnpack_simd_s8_archs",
     "xnnpack_slinky_defines",
     "xnnpack_slinky_deps",
     "xnnpack_slinky_srcs",
@@ -30,10 +34,11 @@ load(
 load(
     "//gen:microkernels.bzl",
     "AARCH32_ASM_MICROKERNEL_SRCS",
-    "AARCH32_JIT_MICROKERNEL_SRCS",
     "AARCH64_ASM_MICROKERNEL_SRCS",
-    "AARCH64_JIT_MICROKERNEL_SRCS",
     "ALL_ARMSIMD32_MICROKERNEL_SRCS",
+    "ALL_AVX256SKX_MICROKERNEL_SRCS",
+    "ALL_AVX256VNNIGFNI_MICROKERNEL_SRCS",
+    "ALL_AVX256VNNI_MICROKERNEL_SRCS",
     "ALL_AVX2_MICROKERNEL_SRCS",
     "ALL_AVX512AMX_MICROKERNEL_SRCS",
     "ALL_AVX512FP16_MICROKERNEL_SRCS",
@@ -46,7 +51,6 @@ load(
     "ALL_AVX_MICROKERNEL_SRCS",
     "ALL_F16C_MICROKERNEL_SRCS",
     "ALL_FMA3_MICROKERNEL_SRCS",
-    "ALL_FMA_MICROKERNEL_SRCS",
     "ALL_FP16ARITH_MICROKERNEL_SRCS",
     "ALL_HEXAGON_MICROKERNEL_SRCS",
     "ALL_HVX_MICROKERNEL_SRCS",
@@ -76,9 +80,6 @@ load(
     "ALL_WASMSIMD_MICROKERNEL_SRCS",
     "ALL_WASM_MICROKERNEL_SRCS",
     "WASM32_ASM_MICROKERNEL_SRCS",
-    "WASM32_JIT_MICROKERNEL_SRCS",
-    "WASMRELAXEDSIMD32_JIT_MICROKERNEL_SRCS",
-    "WASMSIMD32_JIT_MICROKERNEL_SRCS",
 )
 
 licenses(["notice"])
@@ -134,15 +135,18 @@ SUBGRAPH_SRCS = [
     "src/subgraph/convert.c",
     "src/subgraph/convolution-2d.c",
     "src/subgraph/copy.c",
+    "src/subgraph/copysign.c",
     "src/subgraph/deconvolution-2d.c",
     "src/subgraph/depth-to-space-2d.c",
     "src/subgraph/depthwise-convolution-2d.c",
     "src/subgraph/divide.c",
     "src/subgraph/elu.c",
     "src/subgraph/even-split.c",
+    "src/subgraph/exp.c",
     "src/subgraph/floor.c",
     "src/subgraph/fully-connected-sparse.c",
     "src/subgraph/fully-connected.c",
+    "src/subgraph/gelu.c",
     "src/subgraph/global-average-pooling.c",
     "src/subgraph/global-sum-pooling.c",
     "src/subgraph/hardswish.c",
@@ -239,18 +243,34 @@ MICROKERNEL_HDRS = [
 
 MICROKERNEL_DEPS = [
     ":common",
+    ":hardware_config",
+    ":logging",
     ":math",
     ":microkernels_h",
     ":microparams",
     ":prefetch",
     ":tables",
     ":unaligned",
-    ":logging",
 ]
 
-SIMD_HEADERS = ["src/xnnpack/simd/f32-" + arch + ".h" for arch in xnnpack_simd_archs()] + [
+SIMD_HEADERS = [
     "src/xnnpack/simd/f32-avx-base.h",
     "src/xnnpack/simd/f32-generic-functions.h",
+] + [
+    "src/xnnpack/simd/f32-" + arch + ".h"
+    for arch in xnnpack_simd_f32_archs()
+] + [
+    "src/xnnpack/simd/f16-" + arch + ".h"
+    for arch in xnnpack_simd_f16_archs()
+] + [
+    "src/xnnpack/simd/s16-" + arch + ".h"
+    for arch in xnnpack_simd_s16_archs()
+] + [
+    "src/xnnpack/simd/s32-" + arch + ".h"
+    for arch in xnnpack_simd_s32_archs()
+] + [
+    "src/xnnpack/simd/s8-" + arch + ".h"
+    for arch in xnnpack_simd_s8_archs()
 ]
 
 exports_files(SIMD_HEADERS)
@@ -258,30 +278,11 @@ exports_files(SIMD_HEADERS)
 INTERNAL_MICROKERNEL_HDRS = MICROKERNEL_HDRS + SIMD_HEADERS + [
     "src/xnnpack/cache.h",
     "src/xnnpack/intrinsics-polyfill.h",
-    "src/xnnpack/math-stubs.h",
     "src/xnnpack/requantization-stubs.h",
+    "src/xnnpack/unaligned.h",
 ]
 
-WASM_JIT_LINKOPTS = [
-    "-sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE=$addFunction",
-    "-sALLOW_TABLE_GROWTH=1",
-]
-
-JIT_WASMSIMD32_COMMONS_SRCS = [
-    "src/xnnpack/wasmsimd-gemm-igemm-commons.h",
-    "src/xnnpack/wasmsimd-gemm-igemm-loadsplat-commons.h",
-    "src/xnnpack/wasmsimd-gemm-igemm-s4-commons.h",
-]
-
-JIT_WASMRELAXEDSIMD32_COMMONS_SRCS = []
-
-JIT_WASM32_SRCS = WASM32_JIT_MICROKERNEL_SRCS
-
-JIT_WASMSIMD32_SRCS = JIT_WASM32_SRCS + JIT_WASMSIMD32_COMMONS_SRCS + WASMSIMD32_JIT_MICROKERNEL_SRCS
-
-JIT_WASMRELAXEDSIMD32_SRCS = JIT_WASMSIMD32_SRCS + JIT_WASMRELAXEDSIMD32_COMMONS_SRCS + WASMRELAXEDSIMD32_JIT_MICROKERNEL_SRCS
-
-ALL_MICROKERNEL_SRCS = ALL_NEON_AARCH64_MICROKERNEL_SRCS + ALL_NEONBF16_AARCH64_MICROKERNEL_SRCS + ALL_NEONDOT_AARCH64_MICROKERNEL_SRCS + ALL_NEONFMA_AARCH64_MICROKERNEL_SRCS + ALL_NEONFP16ARITH_AARCH64_MICROKERNEL_SRCS + ALL_ARMSIMD32_MICROKERNEL_SRCS + ALL_AVX_MICROKERNEL_SRCS + ALL_AVXVNNI_MICROKERNEL_SRCS + ALL_AVX2_MICROKERNEL_SRCS + ALL_AVX512F_MICROKERNEL_SRCS + ALL_AVX512SKX_MICROKERNEL_SRCS + ALL_AVX512VBMI_MICROKERNEL_SRCS + ALL_AVX512VNNI_MICROKERNEL_SRCS + ALL_AVX512VNNIGFNI_MICROKERNEL_SRCS + ALL_AVX512AMX_MICROKERNEL_SRCS + ALL_AVX512FP16_MICROKERNEL_SRCS + ALL_F16C_MICROKERNEL_SRCS + ALL_FMA_MICROKERNEL_SRCS + ALL_FMA3_MICROKERNEL_SRCS + ALL_FP16ARITH_MICROKERNEL_SRCS + ALL_HEXAGON_MICROKERNEL_SRCS + ALL_HVX_MICROKERNEL_SRCS + ALL_NEON_MICROKERNEL_SRCS + ALL_NEONBF16_MICROKERNEL_SRCS + ALL_NEONDOT_MICROKERNEL_SRCS + ALL_NEONDOTFP16ARITH_MICROKERNEL_SRCS + ALL_NEONFMA_MICROKERNEL_SRCS + ALL_NEONFP16_MICROKERNEL_SRCS + ALL_NEONFP16ARITH_MICROKERNEL_SRCS + ALL_NEONV8_MICROKERNEL_SRCS + ALL_RVV_MICROKERNEL_SRCS + ALL_RVVFP16ARITH_MICROKERNEL_SRCS + ALL_SCALAR_MICROKERNEL_SRCS + ALL_SSE_MICROKERNEL_SRCS + ALL_SSE2_MICROKERNEL_SRCS + ALL_SSE41_MICROKERNEL_SRCS + ALL_SSSE3_MICROKERNEL_SRCS + ALL_WASM_MICROKERNEL_SRCS + ALL_WASMRELAXEDSIMD_MICROKERNEL_SRCS + ALL_WASMSIMD_MICROKERNEL_SRCS + AARCH32_ASM_MICROKERNEL_SRCS + AARCH64_ASM_MICROKERNEL_SRCS + WASM32_ASM_MICROKERNEL_SRCS
+ALL_MICROKERNEL_SRCS = ALL_NEON_AARCH64_MICROKERNEL_SRCS + ALL_NEONBF16_AARCH64_MICROKERNEL_SRCS + ALL_NEONDOT_AARCH64_MICROKERNEL_SRCS + ALL_NEONFMA_AARCH64_MICROKERNEL_SRCS + ALL_NEONFP16ARITH_AARCH64_MICROKERNEL_SRCS + ALL_ARMSIMD32_MICROKERNEL_SRCS + ALL_AVX_MICROKERNEL_SRCS + ALL_AVXVNNI_MICROKERNEL_SRCS + ALL_AVX256SKX_MICROKERNEL_SRCS + ALL_AVX256VNNI_MICROKERNEL_SRCS + ALL_AVX256VNNIGFNI_MICROKERNEL_SRCS + ALL_AVX2_MICROKERNEL_SRCS + ALL_AVX512F_MICROKERNEL_SRCS + ALL_AVX512SKX_MICROKERNEL_SRCS + ALL_AVX512VBMI_MICROKERNEL_SRCS + ALL_AVX512VNNI_MICROKERNEL_SRCS + ALL_AVX512VNNIGFNI_MICROKERNEL_SRCS + ALL_AVX512AMX_MICROKERNEL_SRCS + ALL_AVX512FP16_MICROKERNEL_SRCS + ALL_F16C_MICROKERNEL_SRCS + ALL_FMA3_MICROKERNEL_SRCS + ALL_FP16ARITH_MICROKERNEL_SRCS + ALL_HEXAGON_MICROKERNEL_SRCS + ALL_HVX_MICROKERNEL_SRCS + ALL_NEON_MICROKERNEL_SRCS + ALL_NEONBF16_MICROKERNEL_SRCS + ALL_NEONDOT_MICROKERNEL_SRCS + ALL_NEONDOTFP16ARITH_MICROKERNEL_SRCS + ALL_NEONFMA_MICROKERNEL_SRCS + ALL_NEONFP16_MICROKERNEL_SRCS + ALL_NEONFP16ARITH_MICROKERNEL_SRCS + ALL_NEONV8_MICROKERNEL_SRCS + ALL_RVV_MICROKERNEL_SRCS + ALL_RVVFP16ARITH_MICROKERNEL_SRCS + ALL_SCALAR_MICROKERNEL_SRCS + ALL_SSE_MICROKERNEL_SRCS + ALL_SSE2_MICROKERNEL_SRCS + ALL_SSE41_MICROKERNEL_SRCS + ALL_SSSE3_MICROKERNEL_SRCS + ALL_WASM_MICROKERNEL_SRCS + ALL_WASMRELAXEDSIMD_MICROKERNEL_SRCS + ALL_WASMSIMD_MICROKERNEL_SRCS + AARCH32_ASM_MICROKERNEL_SRCS + AARCH64_ASM_MICROKERNEL_SRCS + WASM32_ASM_MICROKERNEL_SRCS
 
 filegroup(
     name = "microkernel_source_files",
@@ -301,6 +302,15 @@ xnnpack_cc_library(
     hdrs = INTERNAL_MICROKERNEL_HDRS,
     gcc_copts = xnnpack_gcc_std_copts(),
     msvc_copts = xnnpack_msvc_std_copts(),
+    deps = [
+        ":common",
+        ":config_hdrs",
+        ":memory",
+        ":microparams",
+        ":mutex",
+        ":xnnpack_h",
+        "@FP16",
+    ],
 )
 
 xnnpack_cc_library(
@@ -327,8 +337,16 @@ xnnpack_cc_library(
     hdrs = ["src/xnnpack/common.h"],
     gcc_copts = xnnpack_gcc_std_copts(),
     msvc_copts = xnnpack_msvc_std_copts(),
+)
+
+xnnpack_cc_library(
+    name = "init_once",
+    hdrs = ["src/xnnpack/init-once.h"],
+    gcc_copts = xnnpack_gcc_std_copts(),
+    msvc_copts = xnnpack_msvc_std_copts(),
     deps = [
-        ":platform_jit",
+        ":common",
+        ":xnnpack_h",
     ],
 )
 
@@ -352,26 +370,57 @@ xnnpack_cc_library(
         "src/xnnpack/microfnptr.h",
         "src/xnnpack/microparams.h",
     ],
-    copts = select({
-        ":cpuinfo_enabled": ["-DXNN_ENABLE_CPUINFO=1"],
-        "//conditions:default": ["-DXNN_ENABLE_CPUINFO=0"],
+    defines = select({
+        ":cpuinfo_enabled": ["XNN_ENABLE_CPUINFO=1"],
+        "//conditions:default": ["XNN_ENABLE_CPUINFO=0"],
     }) + select({
-        ":avxvnni_enabled": ["-DXNN_ENABLE_AVXVNNI=1"],
-        "//conditions:default": ["-DXNN_ENABLE_AVXVNNI=0"],
+        ":arm_fp16_scalar_enabled": ["XNN_ENABLE_ARM_FP16_SCALAR=1"],
+        "//conditions:default": ["XNN_ENABLE_ARM_FP16_SCALAR=0"],
     }) + select({
-        ":avx512amx_enabled": ["-DXNN_ENABLE_AVX512AMX=1"],
-        "//conditions:default": ["-DXNN_ENABLE_AVX512AMX=0"],
+        ":arm_fp16_vector_enabled": ["XNN_ENABLE_ARM_FP16_VECTOR=1"],
+        "//conditions:default": ["XNN_ENABLE_ARM_FP16_VECTOR=0"],
     }) + select({
-        ":avx512fp16_enabled": ["-DXNN_ENABLE_AVX512FP16=1"],
-        "//conditions:default": ["-DXNN_ENABLE_AVX512FP16=0"],
+        ":arm_bf16_enabled": ["XNN_ENABLE_ARM_BF16=1"],
+        "//conditions:default": ["XNN_ENABLE_ARM_BF16=0"],
     }) + select({
-        ":hvx_enabled": ["-DXNN_ENABLE_HVX=1"],
-        "//conditions:default": ["-DXNN_ENABLE_HVX=0"],
+        ":arm_dotprod_enabled": ["XNN_ENABLE_ARM_DOTPROD=1"],
+        "//conditions:default": ["XNN_ENABLE_ARM_DOTPROD=0"],
+    }) + select({
+        ":arm_i8mm_enabled": ["XNN_ENABLE_ARM_I8MM=1"],
+        "//conditions:default": ["XNN_ENABLE_ARM_I8MM=0"],
+    }) + select({
+        ":riscv_fp16_vector_enabled": ["XNN_ENABLE_RISCV_FP16_VECTOR=1"],
+        "//conditions:default": ["XNN_ENABLE_RISCV_FP16_VECTOR=0"],
+    }) + select({
+        ":avx512vnnigfni_enabled": ["XNN_ENABLE_AVX512VNNIGFNI=1"],
+        "//conditions:default": ["XNN_ENABLE_AVX512VNNIGFNI=0"],
+    }) + select({
+        ":avx512amx_enabled": ["XNN_ENABLE_AVX512AMX=1"],
+        "//conditions:default": ["XNN_ENABLE_AVX512AMX=0"],
+    }) + select({
+        ":avx512fp16_enabled": ["XNN_ENABLE_AVX512FP16=1"],
+        "//conditions:default": ["XNN_ENABLE_AVX512FP16=0"],
+    }) + select({
+        ":avxvnni_enabled": ["XNN_ENABLE_AVXVNNI=1"],
+        "//conditions:default": ["XNN_ENABLE_AVXVNNI=0"],
+    }) + select({
+        ":avx256skx_enabled": ["XNN_ENABLE_AVX256SKX=1"],
+        "//conditions:default": ["XNN_ENABLE_AVX256SKX=0"],
+    }) + select({
+        ":avx256vnni_enabled": ["XNN_ENABLE_AVX256VNNI=1"],
+        "//conditions:default": ["XNN_ENABLE_AVX256VNNI=0"],
+    }) + select({
+        ":avx256vnnigfni_enabled": ["XNN_ENABLE_AVX256VNNIGFNI=1"],
+        "//conditions:default": ["XNN_ENABLE_AVX256VNNIGFNI=0"],
+    }) + select({
+        ":hvx_enabled": ["XNN_ENABLE_HVX=1"],
+        "//conditions:default": ["XNN_ENABLE_HVX=0"],
     }),
     gcc_copts = xnnpack_gcc_std_copts(),
     msvc_copts = xnnpack_msvc_std_copts(),
     deps = [
         ":common",
+        ":init_once",
         ":logging",
     ] + select({
         ":cpuinfo_enabled": ["@cpuinfo"],
@@ -384,6 +433,10 @@ xnnpack_cc_library(
     hdrs = [
         "src/xnnpack/config.h",
         "src/xnnpack/config-types.h",
+    ],
+    deps = [
+        ":hardware_config",
+        ":params",
     ],
 )
 
@@ -436,15 +489,19 @@ xnnpack_cc_library(
         ":common",
         ":config_hdrs",
         ":enable_assembly",
+        ":enable_avx256skx",
+        ":enable_avx256vnni",
+        ":enable_avx256vnnigfni",
         ":enable_avx512amx",
         ":enable_avx512fp16",
+        ":enable_avx512vnnigfni",
         ":enable_avxvnni",
         ":enable_dwconv_multipass",
         ":enable_gemm_m_specialization",
         ":enable_hvx",
-        ":enable_jit",
         ":experiments_config",
         ":hardware_config",
+        ":init_once",
         ":logging",
         ":microkernels_h",
         ":microparams_init",
@@ -479,6 +536,7 @@ xnnpack_cc_library(
     msvc_copts = xnnpack_msvc_std_copts(),
     deps = [
         ":common",
+        ":config_hdrs",
     ],
 )
 
@@ -524,6 +582,9 @@ xnnpack_cc_library(
     hdrs = ["src/xnnpack/node-type.h"],
     gcc_copts = xnnpack_gcc_std_copts(),
     msvc_copts = xnnpack_msvc_std_copts(),
+    deps = [
+        ":common",
+    ],
 )
 
 xnnpack_cc_library(
@@ -531,6 +592,9 @@ xnnpack_cc_library(
     hdrs = ["src/xnnpack/allocation-type.h"],
     gcc_copts = xnnpack_gcc_std_copts(),
     msvc_copts = xnnpack_msvc_std_copts(),
+    deps = [
+        ":common",
+    ],
 )
 
 xnnpack_cc_library(
@@ -538,6 +602,9 @@ xnnpack_cc_library(
     hdrs = ["src/xnnpack/operator-type.h"],
     gcc_copts = xnnpack_gcc_std_copts(),
     msvc_copts = xnnpack_msvc_std_copts(),
+    deps = [
+        ":common",
+    ],
 )
 
 xnnpack_cc_library(
@@ -545,6 +612,19 @@ xnnpack_cc_library(
     hdrs = ["src/xnnpack/microkernel-type.h"],
     gcc_copts = xnnpack_gcc_std_copts(),
     msvc_copts = xnnpack_msvc_std_copts(),
+    deps = [
+        ":common",
+    ],
+)
+
+xnnpack_cc_library(
+    name = "internal",
+    hdrs = ["src/xnnpack/internal.h"],
+    gcc_copts = xnnpack_gcc_std_copts(),
+    msvc_copts = xnnpack_msvc_std_copts(),
+    deps = [
+        ":xnnpack_h",
+    ],
 )
 
 xnnpack_cc_library(
@@ -584,15 +664,6 @@ xnnpack_cc_library(
         ":common",
         ":hardware_config",
     ],
-)
-
-xnnpack_cc_library(
-    name = "math_stubs",
-    hdrs = [
-        "src/xnnpack/math-stubs.h",
-    ],
-    gcc_copts = xnnpack_gcc_std_copts(),
-    msvc_copts = xnnpack_msvc_std_copts(),
 )
 
 xnnpack_cc_library(
@@ -662,10 +733,10 @@ xnnpack_microkernel_cc_library(
         "-ffp-contract=off",
     ],
     msvc_copts = xnnpack_msvc_std_copts(),
-    riscv_srcs_prod = ["src/amalgam/gen/fma.c"],
     srcs_prod = ["src/amalgam/gen/scalar.c"],
-    srcs_test = ALL_FMA_MICROKERNEL_SRCS + ALL_SCALAR_MICROKERNEL_SRCS,
+    srcs_test = ALL_SCALAR_MICROKERNEL_SRCS,
     deps = MICROKERNEL_DEPS + [
+        ":config_hdrs",
         "@FP16",
         "@FXdiv",
     ],
@@ -731,7 +802,9 @@ xnnpack_microkernel_cc_library(
     defines = xnnpack_kleidiai_defines(),
     gcc_copts = xnnpack_gcc_std_copts(),
     msvc_copts = xnnpack_msvc_std_copts(),
-    deps = MICROKERNEL_DEPS + xnnpack_if_kleidiai_enabled(["@KleidiAI//:kleidiai_neon"]),
+    deps = MICROKERNEL_DEPS + xnnpack_if_kleidiai_enabled([
+        "@KleidiAI//kai/ukernels/matmul",
+    ]),
 )
 
 xnnpack_microkernel_cc_library(
@@ -752,7 +825,8 @@ xnnpack_microkernel_cc_library(
     gcc_copts = xnnpack_gcc_std_copts(),
     msvc_copts = xnnpack_msvc_std_copts(),
     deps = MICROKERNEL_DEPS + xnnpack_if_kleidiai_enabled([
-        "@KleidiAI//:kleidiai_neon",
+        "@KleidiAI//kai/ukernels/matmul",
+        "@KleidiAI//kai/ukernels/matmul:lhs_quant_pack_qai8dxp_f32",
     ]),
 )
 
@@ -873,7 +947,10 @@ xnnpack_microkernel_cc_library(
     defines = xnnpack_kleidiai_defines(),
     gcc_copts = xnnpack_gcc_std_copts(),
     msvc_copts = xnnpack_msvc_std_copts(),
-    deps = MICROKERNEL_DEPS + xnnpack_if_kleidiai_enabled(["@KleidiAI//:kleidiai_dotprod"]),
+    deps = MICROKERNEL_DEPS + xnnpack_if_kleidiai_enabled([
+        "@KleidiAI//kai/ukernels/matmul:clamp_f32_qai8dxp1x8_qsi4cxp4x8_1x4x32_neon_dotprod",
+        "@KleidiAI//kai/ukernels/matmul:clamp_f32_qai8dxp1x8_qsi4cxp8x8_1x8x32_neon_dotprod",
+    ]),
 )
 
 xnnpack_microkernel_cc_library(
@@ -894,7 +971,12 @@ xnnpack_microkernel_cc_library(
     defines = xnnpack_kleidiai_defines(),
     gcc_copts = xnnpack_gcc_std_copts(),
     msvc_copts = xnnpack_msvc_std_copts(),
-    deps = MICROKERNEL_DEPS + xnnpack_if_kleidiai_enabled(["@KleidiAI//:kleidiai_i8mm"]),
+    deps = MICROKERNEL_DEPS + xnnpack_if_kleidiai_enabled([
+        "@KleidiAI//kai/ukernels/matmul:clamp_f32_qai8dxp4x8_qsi4cxp4x8_4x4x32_neon_i8mm",
+        "@KleidiAI//kai/ukernels/matmul:clamp_f32_qai8dxp4x8_qsi4cxp4x8_8x4x32_neon_i8mm",
+        "@KleidiAI//kai/ukernels/matmul:clamp_f32_qai8dxp4x8_qsi4cxp8x8_4x8x32_neon_i8mm",
+        "@KleidiAI//kai/ukernels/matmul:clamp_f32_qai8dxp4x8_qsi4cxp8x8_8x8x32_neon_i8mm",
+    ]),
 )
 
 xnnpack_microkernel_cc_library(
@@ -1067,6 +1149,28 @@ xnnpack_microkernel_cc_library(
 )
 
 xnnpack_microkernel_cc_library(
+    name = "avx256skx",
+    gcc_copts = xnnpack_gcc_std_copts(),
+    gcc_x86_copts = [
+        "-mf16c",
+        "-mfma",
+        "-mavx512f",
+        "-mavx512cd",
+        "-mavx512bw",
+        "-mavx512dq",
+        "-mavx512vl",
+    ],
+    mingw_copts = ["-fno-asynchronous-unwind-tables"],
+    msvc_copts = xnnpack_msvc_std_copts(),
+    msvc_x86_32_copts = ["/arch:AVX512"],
+    msvc_x86_64_copts = ["/arch:AVX512"],
+    msys_copts = ["-fno-asynchronous-unwind-tables"],
+    x86_srcs_prod = ["src/amalgam/gen/avx256skx.c"],
+    x86_srcs_test = ALL_AVX256SKX_MICROKERNEL_SRCS,
+    deps = MICROKERNEL_DEPS,
+)
+
+xnnpack_microkernel_cc_library(
     name = "avx512vbmi",
     gcc_copts = xnnpack_gcc_std_copts(),
     gcc_x86_copts = [
@@ -1113,6 +1217,29 @@ xnnpack_microkernel_cc_library(
 )
 
 xnnpack_microkernel_cc_library(
+    name = "avx256vnni",
+    gcc_copts = xnnpack_gcc_std_copts(),
+    gcc_x86_copts = [
+        "-mf16c",
+        "-mfma",
+        "-mavx512f",
+        "-mavx512cd",
+        "-mavx512bw",
+        "-mavx512dq",
+        "-mavx512vl",
+        "-mavx512vnni",
+    ],
+    mingw_copts = ["-fno-asynchronous-unwind-tables"],
+    msvc_copts = xnnpack_msvc_std_copts(),
+    msvc_x86_32_copts = ["/arch:AVX512"],
+    msvc_x86_64_copts = ["/arch:AVX512"],
+    msys_copts = ["-fno-asynchronous-unwind-tables"],
+    x86_srcs_prod = ["src/amalgam/gen/avx256vnni.c"],
+    x86_srcs_test = ALL_AVX256VNNI_MICROKERNEL_SRCS,
+    deps = MICROKERNEL_DEPS,
+)
+
+xnnpack_microkernel_cc_library(
     name = "avx512vnnigfni",
     gcc_copts = xnnpack_gcc_std_copts(),
     gcc_x86_copts = [
@@ -1133,6 +1260,30 @@ xnnpack_microkernel_cc_library(
     msys_copts = ["-fno-asynchronous-unwind-tables"],
     x86_srcs_prod = ["src/amalgam/gen/avx512vnnigfni.c"],
     x86_srcs_test = ALL_AVX512VNNIGFNI_MICROKERNEL_SRCS,
+    deps = MICROKERNEL_DEPS,
+)
+
+xnnpack_microkernel_cc_library(
+    name = "avx256vnnigfni",
+    gcc_copts = xnnpack_gcc_std_copts(),
+    gcc_x86_copts = [
+        "-mf16c",
+        "-mfma",
+        "-mavx512f",
+        "-mavx512cd",
+        "-mavx512bw",
+        "-mavx512dq",
+        "-mavx512vl",
+        "-mavx512vnni",
+        "-mgfni",
+    ],
+    mingw_copts = ["-fno-asynchronous-unwind-tables"],
+    msvc_copts = xnnpack_msvc_std_copts(),
+    msvc_x86_32_copts = ["/arch:AVX512"],
+    msvc_x86_64_copts = ["/arch:AVX512"],
+    msys_copts = ["-fno-asynchronous-unwind-tables"],
+    x86_srcs_prod = ["src/amalgam/gen/avx256vnnigfni.c"],
+    x86_srcs_test = ALL_AVX256VNNIGFNI_MICROKERNEL_SRCS,
     deps = MICROKERNEL_DEPS,
 )
 
@@ -1225,6 +1376,9 @@ xnnpack_cc_library(
     wasm_srcs = WASM32_ASM_MICROKERNEL_SRCS,
     wasmrelaxedsimd_srcs = WASM32_ASM_MICROKERNEL_SRCS,
     wasmsimd_srcs = WASM32_ASM_MICROKERNEL_SRCS,
+    deps = [
+        ":common",
+    ],
 )
 
 xnnpack_cc_library(
@@ -1345,6 +1499,15 @@ xnnpack_aggregate_library(
         ":avxvnni_enabled": ["XNN_ENABLE_AVXVNNI=1"],
         "//conditions:default": ["XNN_ENABLE_AVXVNNI=0"],
     }) + select({
+        ":avx256skx_enabled": ["XNN_ENABLE_AVX256SKX=1"],
+        "//conditions:default": ["XNN_ENABLE_AVX256SKX=0"],
+    }) + select({
+        ":avx256vnni_enabled": ["XNN_ENABLE_AVX256VNNI=1"],
+        "//conditions:default": ["XNN_ENABLE_AVX256VNNI=0"],
+    }) + select({
+        ":avx256vnnigfni_enabled": ["XNN_ENABLE_AVX256VNNIGFNI=1"],
+        "//conditions:default": ["XNN_ENABLE_AVX256VNNIGFNI=0"],
+    }) + select({
         ":hvx_enabled": ["XNN_ENABLE_HVX=1"],
         "//conditions:default": ["XNN_ENABLE_HVX=0"],
     }),
@@ -1373,6 +1536,15 @@ xnnpack_aggregate_library(
         "//conditions:default": [],
     }) + select({
         ":avxvnni_enabled": [":avxvnni_prod_microkernels"],
+        "//conditions:default": [],
+    }) + select({
+        ":avx256skx_enabled": [":avx256skx_prod_microkernels"],
+        "//conditions:default": [],
+    }) + select({
+        ":avx256vnni_enabled": [":avx256vnni_prod_microkernels"],
+        "//conditions:default": [],
+    }) + select({
+        ":avx256vnnigfni_enabled": [":avx256vnnigfni_prod_microkernels"],
         "//conditions:default": [],
     }) + select({
         ":avx512amx_enabled": [":avx512amx_prod_microkernels"],
@@ -1463,6 +1635,15 @@ xnnpack_aggregate_library(
         ":avxvnni_enabled": ["XNN_ENABLE_AVXVNNI=1"],
         "//conditions:default": ["XNN_ENABLE_AVXVNNI=0"],
     }) + select({
+        ":avx256skx_enabled": ["XNN_ENABLE_AVX256SKX=1"],
+        "//conditions:default": ["XNN_ENABLE_AVX256SKX=0"],
+    }) + select({
+        ":avx256vnni_enabled": ["XNN_ENABLE_AVX256VNNI=1"],
+        "//conditions:default": ["XNN_ENABLE_AVX256VNNI=0"],
+    }) + select({
+        ":avx256vnnigfni_enabled": ["XNN_ENABLE_AVX256VNNIGFNI=1"],
+        "//conditions:default": ["XNN_ENABLE_AVX256VNNIGFNI=0"],
+    }) + select({
         ":hvx_enabled": ["XNN_ENABLE_HVX=1"],
         "//conditions:default": ["XNN_ENABLE_HVX=0"],
     }),
@@ -1494,6 +1675,15 @@ xnnpack_aggregate_library(
         "//conditions:default": [],
     }) + select({
         ":avxvnni_enabled": [":avxvnni_test_microkernels"],
+        "//conditions:default": [],
+    }) + select({
+        ":avx256skx_enabled": [":avx256skx_test_microkernels"],
+        "//conditions:default": [],
+    }) + select({
+        ":avx256vnni_enabled": [":avx256vnni_test_microkernels"],
+        "//conditions:default": [],
+    }) + select({
+        ":avx256vnnigfni_enabled": [":avx256vnnigfni_test_microkernels"],
         "//conditions:default": [],
     }) + select({
         ":avx512amx_enabled": [":avx512amx_test_microkernels"],
@@ -1570,11 +1760,18 @@ xnnpack_cc_library(
     deps = [
         ":common",
         ":config_hdrs",
+        ":logging",
         ":math",
-        ":operator_h",
+        ":microparams",
+        ":params",
         ":unaligned",
+        ":xnnpack_h",
         "@FP16",
-    ] + xnnpack_if_kleidiai_enabled(["@KleidiAI//:kleidiai_common"]),
+    ] + xnnpack_if_kleidiai_enabled([
+        "@KleidiAI//kai/ukernels/matmul",
+        "@KleidiAI//kai/ukernels/matmul:rhs_pack_kxn_qsi4cxp_qsu4cxs1s0",
+        "@KleidiAI//kai/ukernels/matmul:rhs_pack_nxk_qsi4cxp_qsu4cxs1s0",
+    ]),
 )
 
 cc_library(
@@ -1591,6 +1788,33 @@ cc_library(
     defines = select({
         ":avxvnni_enabled": ["XNN_ENABLE_AVXVNNI=1"],
         "//conditions:default": ["XNN_ENABLE_AVXVNNI=0"],
+    }),
+    visibility = xnnpack_visibility(),
+)
+
+cc_library(
+    name = "enable_avx256skx",
+    defines = select({
+        ":avx256skx_enabled": ["XNN_ENABLE_AVX256SKX=1"],
+        "//conditions:default": ["XNN_ENABLE_AVX256SKX=0"],
+    }),
+    visibility = xnnpack_visibility(),
+)
+
+cc_library(
+    name = "enable_avx256vnni",
+    defines = select({
+        ":avx256vnni_enabled": ["XNN_ENABLE_AVX256VNNI=1"],
+        "//conditions:default": ["XNN_ENABLE_AVX256VNNI=0"],
+    }),
+    visibility = xnnpack_visibility(),
+)
+
+cc_library(
+    name = "enable_avx256vnnigfni",
+    defines = select({
+        ":avx256vnnigfni_enabled": ["XNN_ENABLE_AVX256VNNIGFNI=1"],
+        "//conditions:default": ["XNN_ENABLE_AVX256VNNIGFNI=0"],
     }),
     visibility = xnnpack_visibility(),
 )
@@ -1623,20 +1847,20 @@ cc_library(
 )
 
 cc_library(
+    name = "enable_avx512vnnigfni",
+    defines = select({
+        ":avx512vnnigfni_enabled": ["XNN_ENABLE_AVX512VNNIGFNI=1"],
+        "//conditions:default": ["XNN_ENABLE_AVX512VNNIGFNI=0"],
+    }),
+    visibility = xnnpack_visibility(),
+)
+
+cc_library(
     name = "enable_sparse",
     defines = select({
         ":sparse_enabled": ["XNN_ENABLE_SPARSE=1"],
         "//conditions:default": ["XNN_ENABLE_SPARSE=0"],
     }),
-)
-
-cc_library(
-    name = "enable_jit",
-    defines = select({
-        ":jit_enabled": ["XNN_ENABLE_JIT=1"],
-        "//conditions:default": ["XNN_ENABLE_JIT=0"],
-    }),
-    visibility = xnnpack_visibility(),
 )
 
 cc_library(
@@ -1655,22 +1879,15 @@ cc_library(
     }),
 )
 
-cc_library(
-    name = "platform_jit",
-    defines = select({
-        ":xnn_platform_jit_explicit_true": ["XNN_PLATFORM_JIT=1"],
-        ":xnn_platform_jit_explicit_false": ["XNN_PLATFORM_JIT=0"],
-        # Auto-detect JIT compatibility based on platform macros and set XNN_PLATFORM_JIT in xnnpack/common.h
-        "//conditions:default": [],
-    }),
-)
-
 py_binary(
     name = "generate_build_identifier_py",
     srcs = ["scripts/generate-build-identifier.py"],
     main = "scripts/generate-build-identifier.py",
-    # This should only be built as part of the related genrule.
-    tags = ["notap"],
+    tags = ["notap"],  # This should only be built as part of the related genrule.
+    target_compatible_with = select({
+        "//build_config:emscripten": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
 )
 
 xnnpack_transitive_source_list(
@@ -1742,22 +1959,6 @@ xnnpack_cc_library(
     ],
 )
 
-xnnpack_cc_library(
-    name = "post_operation",
-    srcs = [
-        "src/operators/post-operation.c",
-    ],
-    hdrs = [
-        "src/xnnpack/post-operation.h",
-    ],
-    deps = [
-        ":allocator",
-        ":microkernel_configs",
-        ":microparams",
-        ":params",
-    ],
-)
-
 # Define a library with just the header to remove circular dependencies:
 # indirection <-> operators.
 xnnpack_cc_library(
@@ -1785,10 +1986,12 @@ xnnpack_cc_library(
     gcc_copts = xnnpack_gcc_std_copts(),
     msvc_copts = xnnpack_msvc_std_copts(),
     deps = [
-        ":cache",
+        ":allocator",
         ":common",
+        ":logging",
         ":math",
         ":operator_h",
+        ":params",
         ":xnnpack_h",
     ],
 )
@@ -1814,65 +2017,26 @@ xnnpack_cc_library(
         ":cache",
         ":common",
         ":enable_gemm_m_specialization",
-        ":enable_jit",
         ":indirection",
         ":logging",
         ":math",
         ":microkernel_configs",
         ":microkernel_type",
         ":microkernel_utils",
+        ":microkernels_h",
         ":microparams_init",
         ":normalization",
         ":operator_type",
         ":operator_utils",
         ":packing",
         ":params",
-        ":post_operation",
+        ":quantization",
         ":xnnpack_h",
         "@FP16",
         "@pthreadpool",
     ] + select({
-        ":jit_enabled": [":jit"],
         "//conditions:default": [],
     }),
-)
-
-xnnpack_cc_library(
-    name = "jit",
-    srcs = [
-        "src/jit/aarch32-assembler.cc",
-        "src/jit/aarch64-assembler.cc",
-        "src/jit/assembler.cc",
-        "src/jit/wasm-assembler.cc",
-    ],
-    hdrs = [
-        "src/xnnpack/aarch32-assembler.h",
-        "src/xnnpack/aarch64-assembler.h",
-        "src/xnnpack/array-helpers.h",
-        "src/xnnpack/assembler.h",
-        "src/xnnpack/leb128.h",
-        "src/xnnpack/wasm-assembler.h",
-    ],
-    aarch32_srcs = AARCH32_JIT_MICROKERNEL_SRCS,
-    aarch64_srcs = AARCH64_JIT_MICROKERNEL_SRCS,
-    linkopts = select({
-        "//build_config:emscripten": WASM_JIT_LINKOPTS,
-        "//conditions:default": [],
-    }),
-    msvc_copts = xnnpack_msvc_std_copts(),
-    wasm_srcs = JIT_WASM32_SRCS,
-    wasmrelaxedsimd_srcs = JIT_WASMRELAXEDSIMD32_SRCS,
-    wasmsimd_srcs = JIT_WASMSIMD32_SRCS,
-    deps = [
-        ":common",
-        ":logging",
-        ":math",
-        ":memory",
-        ":microkernels_h",
-        ":microparams",
-        ":post_operation",
-        ":xnnpack_h",
-    ],
 )
 
 xnnpack_cc_library(
@@ -1895,17 +2059,24 @@ xnnpack_cc_library(
         ":allocator",
         ":cache",
         ":common",
-        ":enable_jit",
+        ":config_hdrs",
         ":enable_sparse",
+        ":hardware_config",
+        ":internal",
         ":logging",
         ":math",
+        ":memory",
+        ":microkernel_type",
+        ":microkernels_h",
         ":node_type",
         ":operator_type",
+        ":operator_utils",
         ":operators",
         ":params",
         ":requantization",
         ":xnnpack_h",
         "@FP16",
+        "@pthreadpool",
     ] + xnnpack_slinky_deps(),
 )
 
@@ -1963,6 +2134,9 @@ xnnpack_cc_library(
         ":allocator",
         ":build_identifier",
         ":common",
+        ":config_hdrs",
+        ":hardware_config",
+        ":init_once",
         ":logging",
         ":math",
         ":microkernels_h",
@@ -1971,6 +2145,7 @@ xnnpack_cc_library(
         ":operators",
         ":params",
         ":subgraph",
+        "@pthreadpool",
     ],
 )
 
@@ -1996,15 +2171,11 @@ xnnpack_cc_library(
         ":allocator",
         ":build_identifier",
         ":common",
+        ":config_hdrs",
+        ":init_once",
         ":logging",
-        ":math",
-        ":microkernels_h",
-        ":microparams",
-        ":microparams_init",
-        ":operators",
         ":params",
-        ":prod_microkernels",
-        ":subgraph",
+        "@pthreadpool",
     ],
 )
 
@@ -2030,14 +2201,11 @@ xnnpack_cc_library(
         ":allocator",
         ":build_identifier",
         ":common",
+        ":config_hdrs",
+        ":init_once",
         ":logging",
-        ":math",
-        ":microkernels_h",
-        ":microparams",
-        ":microparams_init",
-        ":operators",
         ":params",
-        ":prod_microkernels",
+        "@pthreadpool",
     ],
 )
 
@@ -2166,6 +2334,42 @@ config_setting(
     define_values = {"xnn_enable_avxvnni": "false"},
 )
 
+# Enables usage of Intel AVX256SKX (evex256) kernels.
+config_setting(
+    name = "xnn_enable_avx256skx_explicit_true",
+    define_values = {"xnn_enable_avx256skx": "true"},
+)
+
+# Disables usage of Intel AVX256SKX (evex256) kernels.
+config_setting(
+    name = "xnn_enable_avx256skx_explicit_false",
+    define_values = {"xnn_enable_avx256skx": "false"},
+)
+
+# Enables usage of Intel AVX256VNNI (evex256) kernels.
+config_setting(
+    name = "xnn_enable_avx256vnni_explicit_true",
+    define_values = {"xnn_enable_avx256vnni": "true"},
+)
+
+# Disables usage of Intel AVX256VNNI (evex256) kernels.
+config_setting(
+    name = "xnn_enable_avx256vnni_explicit_false",
+    define_values = {"xnn_enable_avx256vnni": "false"},
+)
+
+# Enables usage of Intel AVX256VNNIGFNI (evex256) kernels.
+config_setting(
+    name = "xnn_enable_avx256vnnigfni_explicit_true",
+    define_values = {"xnn_enable_avx256vnnigfni": "true"},
+)
+
+# Disables usage of Intel AVX256VNNIGFNI (evex256) kernels.
+config_setting(
+    name = "xnn_enable_avx256vnnigfni_explicit_false",
+    define_values = {"xnn_enable_avx256vnnigfni": "false"},
+)
+
 # Enables usage of Hexagon HVX kernels.
 config_setting(
     name = "xnn_enable_hvx_explicit_true",
@@ -2268,22 +2472,10 @@ config_setting(
     define_values = {"xnn_enable_memopt": "false"},
 )
 
-# Enables usage of JIT kernels.
-config_setting(
-    name = "xnn_enable_jit_explicit_true",
-    define_values = {"xnn_enable_jit": "true"},
-)
-
 # Enables usage of slinky locality optimizations
 config_setting(
     name = "slinky_enabled",
     define_values = {"xnn_use_slinky": "true"},
-)
-
-# Disables usage of JIT kernels.
-config_setting(
-    name = "xnn_enable_jit_explicit_false",
-    define_values = {"xnn_enable_jit": "false"},
 )
 
 # Enables usage of mr heuristic to select microkernels.
@@ -2350,16 +2542,6 @@ config_setting(
 config_setting(
     name = "xnn_log_level_explicit_debug",
     define_values = {"xnn_log_level": "debug"},
-)
-
-config_setting(
-    name = "xnn_platform_jit_explicit_true",
-    define_values = {"xnn_platform_jit": "true"},
-)
-
-config_setting(
-    name = "xnn_platform_jit_explicit_false",
-    define_values = {"xnn_platform_jit": "false"},
 )
 
 # Builds with -c dbg
@@ -2539,6 +2721,54 @@ alias(
 )
 
 selects.config_setting_group(
+    name = "avx256skx_enabled_by_default",
+    match_any = [
+        "//build_config:x86",
+    ],
+)
+
+alias(
+    name = "avx256skx_enabled",
+    actual = select({
+        ":xnn_enable_avx256skx_explicit_true": ":xnn_enable_avx256skx_explicit_true",
+        ":xnn_enable_avx256skx_explicit_false": ":xnn_enable_avx256skx_explicit_true",
+        "//conditions:default": ":avx256skx_enabled_by_default",
+    }),
+)
+
+selects.config_setting_group(
+    name = "avx256vnni_enabled_by_default",
+    match_any = [
+        "//build_config:x86",
+    ],
+)
+
+alias(
+    name = "avx256vnni_enabled",
+    actual = select({
+        ":xnn_enable_avx256vnni_explicit_true": ":xnn_enable_avx256vnni_explicit_true",
+        ":xnn_enable_avx256vnni_explicit_false": ":xnn_enable_avx256vnni_explicit_true",
+        "//conditions:default": ":avx256vnni_enabled_by_default",
+    }),
+)
+
+selects.config_setting_group(
+    name = "avx256vnnigfni_enabled_by_default",
+    match_any = [
+        "//build_config:x86",
+    ],
+)
+
+alias(
+    name = "avx256vnnigfni_enabled",
+    actual = select({
+        ":xnn_enable_avx256vnnigfni_explicit_true": ":xnn_enable_avx256vnnigfni_explicit_true",
+        ":xnn_enable_avx256vnnigfni_explicit_false": ":xnn_enable_avx256vnnigfni_explicit_true",
+        "//conditions:default": ":avx256vnnigfni_enabled_by_default",
+    }),
+)
+
+selects.config_setting_group(
     name = "hvx_enabled_by_default",
     match_any = [
         "//build_config:hexagon",
@@ -2561,13 +2791,11 @@ selects.config_setting_group(
     ],
 )
 
-# Temporary disable vectors on Android
 alias(
     name = "riscv_vector_enabled",
     actual = select({
         ":xnn_enable_riscv_vector_explicit_true": ":xnn_enable_riscv_vector_explicit_true",
         ":xnn_enable_riscv_vector_explicit_false": ":xnn_enable_riscv_vector_explicit_true",
-        "//build_config:android": ":xnn_enable_riscv_vector_explicit_false",
         "//conditions:default": ":riscv_vector_enabled_by_default",
     }),
 )
@@ -2610,7 +2838,10 @@ alias(
 
 selects.config_setting_group(
     name = "kleidiai_enabled_by_default",
-    match_any = [":xnn_enable_kleidiai_explicit_true"],
+    match_all = [
+        "//build_config:aarch64",
+        ":arm_i8mm_enabled",
+    ],
 )
 
 alias(
@@ -2667,23 +2898,6 @@ alias(
         ":xnn_enable_memopt_explicit_true": ":xnn_enable_memopt_explicit_true",
         ":xnn_enable_memopt_explicit_false": ":xnn_enable_memopt_explicit_true",
         "//conditions:default": ":memopt_enabled_by_default",
-    }),
-)
-
-selects.config_setting_group(
-    name = "jit_enabled_by_default",
-    match_any = [
-        # Disabled by default, only enabled explicitly
-        ":xnn_enable_jit_explicit_true",
-    ],
-)
-
-alias(
-    name = "jit_enabled",
-    actual = select({
-        ":xnn_enable_jit_explicit_true": ":xnn_enable_jit_explicit_true",
-        ":xnn_enable_jit_explicit_false": ":xnn_enable_jit_explicit_true",
-        "//conditions:default": ":jit_enabled_by_default",
     }),
 )
 

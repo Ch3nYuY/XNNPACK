@@ -29,13 +29,6 @@ struct xnn_transpose_subconfig {
     xnn_transposec_ukernel_fn const_size_ukernel;
     xnn_transposev_ukernel_fn variable_size_ukernel;
   };
-  union {
-    xnn_init_x8_transpose_params_fn x8;
-    xnn_init_x16_transpose_params_fn x16;
-    xnn_init_x24_transpose_params_fn x24;
-    xnn_init_x32_transpose_params_fn x32;
-    xnn_init_x64_transpose_params_fn x64;
-  } init;
   // Maximum number of elements to process per ukernel call.
   size_t tile_size;
 };
@@ -80,19 +73,18 @@ struct xnn_binary_elementwise_config {
     xnn_init_qs8_mul_minmax_params_fn qs8_mul;
     xnn_init_qu8_add_minmax_params_fn qu8_add;
     xnn_init_qu8_mul_minmax_params_fn qu8_mul;
+    xnn_init_s32_default_params_fn s32_default;
   } init;
 };
 
 struct xnn_unary_elementwise_config {
   xnn_vunary_ukernel_fn ukernel;
   union {
-    xnn_init_f16_f32_cvt_params_fn f16_f32_cvt;
     xnn_init_f16_qs8_cvt_params_fn f16_qs8_cvt;
-    xnn_init_f16_abs_params_fn f16_abs;
+    xnn_init_f16_default_params_fn f16_default;
     xnn_init_f16_elu_params_fn f16_elu;
     xnn_init_f16_hswish_params_fn f16_hswish;
     xnn_init_f16_lrelu_params_fn f16_lrelu;
-    xnn_init_f16_neg_params_fn f16_neg;
     xnn_init_f16_minmax_params_fn f16_minmax;
     xnn_init_f16_rsqrt_params_fn f16_rsqrt;
     xnn_init_f16_sigmoid_params_fn f16_sigmoid;
@@ -100,7 +92,7 @@ struct xnn_unary_elementwise_config {
     xnn_init_f16_tanh_params_fn f16_tanh;
     xnn_init_f32_default_params_fn f32_default;
     xnn_init_f32_elu_params_fn f32_elu;
-    xnn_init_f32_f16_cvt_params_fn f32_f16_cvt;
+    xnn_init_f32_exp_params_fn f32_exp;
     xnn_init_f32_hswish_params_fn f32_hswish;
     xnn_init_f32_log_params_fn f32_log;
     xnn_init_f32_lrelu_params_fn f32_lrelu;
@@ -139,6 +131,7 @@ struct xnn_reduce_config {
     xnn_init_f16_default_params_fn f16_default;
     xnn_init_f32_default_params_fn f32_default;
     xnn_init_f32_scale_params_fn f32_scale;
+    xnn_init_f32_scaleminmax_params_fn f32_scaleminmax;
   } init;
   // Number of elements in a tile.
   // For best efficiency, micro-kernel must process a multiple of this number of
@@ -310,14 +303,13 @@ struct xnn_gemm_config {
   struct gemm_fused_ukernels minmax;
   struct gemm_fused_ukernels relu;
   struct gemm_fused_ukernels linear;
-#if XNN_PLATFORM_JIT
-  struct gemm_codegens generator;
-#endif  // XNN_PLATFORM_JIT
   union {
     xnn_init_f16_minmax_params_fn f16;
     xnn_init_f32_minmax_params_fn f32;
     xnn_init_f16_qc4w_minmax_params_fn f16_qc4w;
+    xnn_init_f16_qb4w_minmax_params_fn f16_qb4w;
     xnn_init_f32_qc4w_minmax_params_fn f32_qc4w;
+    xnn_init_f32_qb4w_minmax_params_fn f32_qb4w;
     xnn_init_qs8_conv_minmax_params_fn qs8;
     xnn_init_qs8_qc8w_conv_minmax_params_fn qs8_qc8w;
     xnn_init_qu8_conv_minmax_params_fn qu8;
@@ -329,6 +321,8 @@ struct xnn_gemm_config {
   xnn_packw_gemm_gio_ukernel_fn pack_gemm_gio;
   // Deprecated. Use pack_weights_and_biases instead.
   xnn_packw_gemm_goi_ukernel_fn pack_gemm_goi;
+  // TODO(b/346765736): Use pack_weights_and_biases instead.
+  xnn_packw_gemm_goi_bl_ukernel_fn pack_gemm_goi_bl;
   xnn_pack_conv_goki_w_fn pack_igemm_goki;
   xnn_pack_conv_kgo_w_fn pack_igemm_kgo;
   xnn_pack_deconv_goki_w_fn pack_deconv_goki;
@@ -337,6 +331,7 @@ struct xnn_gemm_config {
   uint8_t log2_kr;
   uint8_t log2_sr;
   uint8_t planes;  // number of 4 bit planes (1 for legacy, 2 for unzip)
+  uint8_t mr_packed;  // `mr` value used for packed left-hand operands.
 };
 
 struct xnn_maxpool_config {

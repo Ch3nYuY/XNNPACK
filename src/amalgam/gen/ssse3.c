@@ -36,8 +36,10 @@ void xnn_f32_dwconv2d_chw_ukernel_3x3p1__ssse3_2x4_acc2(
   assert(padding_top == 1);
 
   const __m128 vmask = _mm_load_ps((const float*) params->sse_stride1.mask);
-  const __m128 vmax = _mm_load_ps(params->sse_stride1.max);
-  const __m128 vmin = _mm_load_ps(params->sse_stride1.min);
+  const __m128 vmax = _mm_set1_ps(params->sse_stride1.max);
+  const __m128 vmin = _mm_set1_ps(params->sse_stride1.min);
+  XNN_FORCE_REALIZATION(vmin);
+  XNN_FORCE_REALIZATION(vmax);
 
   const __m128 vbias = _mm_load1_ps(weights);
   const __m128 vk00 = _mm_load1_ps(weights + 1);
@@ -246,15 +248,37 @@ void xnn_qs16_qs8_vcvt_ukernel__ssse3_u16(
   assert(batch % sizeof(int16_t) == 0);
   assert(input != NULL);
   assert(output != NULL);
+  XNN_ALIGN(16) static const uint8_t shuffle01[16] = {
+    0x80, 0x80, 0, 1, 0x80, 0x80, 0x80, 0x80,
+    0x80, 0x80, 2, 3, 0x80, 0x80, 0x80, 0x80,
+  };
+  XNN_ALIGN(16) static const uint8_t shuffle23[16] = {
+    0x80, 0x80, 4, 5, 0x80, 0x80, 0x80, 0x80,
+    0x80, 0x80, 6, 7, 0x80, 0x80, 0x80, 0x80,
+  };
+  XNN_ALIGN(16) static const uint8_t shuffle45[16] = {
+    0x80, 0x80, 8, 9, 0x80, 0x80, 0x80, 0x80,
+    0x80, 0x80, 10, 11, 0x80, 0x80, 0x80, 0x80,
+  };
+  XNN_ALIGN(16) static const uint8_t shuffle67[16] = {
+    0x80, 0x80, 12, 13, 0x80, 0x80, 0x80, 0x80,
+    0x80, 0x80, 14, 15, 0x80, 0x80, 0x80, 0x80,
+  };
 
-  const __m128i vinput_bias = _mm_load_si128((const __m128i*) params->ssse3.input_bias);
-  const __m128i vmultiplier = _mm_load_si128((const __m128i*) params->ssse3.multiplier);
-  const __m128i vbias = _mm_load_si128((const __m128i*) params->ssse3.bias);
-  const __m128i vshuffle01 = _mm_load_si128((const __m128i*) params->ssse3.shuffle01);
-  const __m128i vshuffle23 = _mm_load_si128((const __m128i*) params->ssse3.shuffle23);
+  const __m128i vinput_bias = _mm_set1_epi16(UINT16_C(0x8000));
+  const __m128i vmultiplier = _mm_set1_epi32(params->scalar.multiplier);
+  const __m128i vbias = _mm_set1_epi64x(
+      (int64_t) ((uint64_t) params->scalar.output_zero_point << 32) + 
+      INT64_C(0x80000000) -
+      (INT64_C(0x80000000) * (int64_t) params->scalar.multiplier));
+  XNN_FORCE_REALIZATION(vinput_bias);
+  XNN_FORCE_REALIZATION(vmultiplier);
+  XNN_FORCE_REALIZATION(vbias);
+  const __m128i vshuffle01 = _mm_load_si128((const __m128i*) shuffle01);
+  const __m128i vshuffle23 = _mm_load_si128((const __m128i*) shuffle23);
 
-  const __m128i vshuffle45 = _mm_load_si128((const __m128i*) params->ssse3.shuffle45);
-  const __m128i vshuffle67 = _mm_load_si128((const __m128i*) params->ssse3.shuffle67);
+  const __m128i vshuffle45 = _mm_load_si128((const __m128i*) shuffle45);
+  const __m128i vshuffle67 = _mm_load_si128((const __m128i*) shuffle67);
   for (; batch >= 16 * sizeof(int16_t); batch -= 16 * sizeof(int16_t)) {
     __m128i vx0 = _mm_loadu_si128((const __m128i*) input); input += 8;
     __m128i vx2 = _mm_loadu_si128((const __m128i*) input); input += 8;
@@ -361,9 +385,12 @@ void xnn_qs8_vcvt_ukernel__ssse3_u32(
   assert(input != NULL);
   assert(output != NULL);
 
-  const __m128i vinput_zero_point = _mm_load_si128((const __m128i*) params->ssse3.input_zero_point);
-  const __m128i vmultiplier = _mm_load_si128((const __m128i*) params->ssse3.multiplier);
-  const __m128i voutput_zero_point = _mm_load_si128((const __m128i*) params->ssse3.output_zero_point);
+  const __m128i vinput_zero_point = _mm_set1_epi16(params->scalar.input_zero_point);
+  const __m128i vmultiplier = _mm_set1_epi16(-params->scalar.multiplier);
+  const __m128i voutput_zero_point = _mm_set1_epi16(params->scalar.output_zero_point);
+  XNN_FORCE_REALIZATION(vinput_zero_point);
+  XNN_FORCE_REALIZATION(vmultiplier);
+  XNN_FORCE_REALIZATION(voutput_zero_point);
   for (; batch >= 32 * sizeof(int8_t); batch -= 32 * sizeof(int8_t)) {
     const __m128i vx0 = _mm_loadu_si128((const __m128i*) input);
     const __m128i vx1 = _mm_loadu_si128((const __m128i*) (input + 16));
@@ -475,10 +502,15 @@ void xnn_qs8_vlrelu_ukernel__ssse3_u32(
   assert(input != NULL);
   assert(output != NULL);
 
-  const __m128i vinput_zero_point = _mm_load_si128((const __m128i*) params->sse2.input_zero_point);
-  const __m128i vmultiplier_diff = _mm_load_si128((const __m128i*) params->sse2.multiplier_diff);
-  const __m128i vmultiplier_base = _mm_load_si128((const __m128i*) params->sse2.multiplier_base);
-  const __m128i voutput_zero_point = _mm_load_si128((const __m128i*) params->sse2.output_zero_point);
+  const __m128i vinput_zero_point = _mm_set1_epi16(params->scalar.input_zero_point);
+  const __m128i vmultiplier_diff = _mm_set1_epi16(-params->scalar.negative_multiplier ^ -params->scalar.positive_multiplier);
+  const __m128i vmultiplier_base = _mm_set1_epi16(-params->scalar.negative_multiplier);
+  const __m128i voutput_zero_point = _mm_set1_epi16(params->scalar.output_zero_point);
+  XNN_FORCE_REALIZATION(vinput_zero_point);
+  XNN_FORCE_REALIZATION(vmultiplier_diff);
+  XNN_FORCE_REALIZATION(vmultiplier_base);
+  XNN_FORCE_REALIZATION(voutput_zero_point);
+
   for (; batch >= 32 * sizeof(int8_t); batch -= 32 * sizeof(int8_t)) {
     const __m128i vx0 = _mm_loadu_si128((const __m128i*) input);
     const __m128i vx1 = _mm_loadu_si128((const __m128i*) (input + 16));
@@ -614,9 +646,12 @@ void xnn_qu8_vcvt_ukernel__ssse3_u32(
   assert(input != NULL);
   assert(output != NULL);
 
-  const __m128i vinput_zero_point = _mm_load_si128((const __m128i*) params->ssse3.input_zero_point);
-  const __m128i vmultiplier = _mm_load_si128((const __m128i*) params->ssse3.multiplier);
-  const __m128i voutput_zero_point = _mm_load_si128((const __m128i*) params->ssse3.output_zero_point);
+  const __m128i vinput_zero_point = _mm_set1_epi16(params->scalar.input_zero_point);
+  const __m128i vmultiplier = _mm_set1_epi16(-params->scalar.multiplier);
+  const __m128i voutput_zero_point = _mm_set1_epi16(params->scalar.output_zero_point);
+  XNN_FORCE_REALIZATION(vinput_zero_point);
+  XNN_FORCE_REALIZATION(vmultiplier);
+  XNN_FORCE_REALIZATION(voutput_zero_point);
   const __m128i vzero = _mm_setzero_si128();
   for (; batch >= 32 * sizeof(uint8_t); batch -= 32 * sizeof(uint8_t)) {
     const __m128i vx0 = _mm_loadu_si128((const __m128i*) input);
@@ -725,10 +760,15 @@ void xnn_qu8_vlrelu_ukernel__ssse3_u32(
   assert(input != NULL);
   assert(output != NULL);
 
-  const __m128i vinput_zero_point = _mm_load_si128((const __m128i*) params->sse2.input_zero_point);
-  const __m128i vmultiplier_diff = _mm_load_si128((const __m128i*) params->sse2.multiplier_diff);
-  const __m128i vmultiplier_base = _mm_load_si128((const __m128i*) params->sse2.multiplier_base);
-  const __m128i voutput_zero_point = _mm_load_si128((const __m128i*) params->sse2.output_zero_point);
+  const __m128i vinput_zero_point = _mm_set1_epi16(params->scalar.input_zero_point);
+  const __m128i vmultiplier_diff = _mm_set1_epi16(-params->scalar.negative_multiplier ^ -params->scalar.positive_multiplier);
+  const __m128i vmultiplier_base = _mm_set1_epi16(-params->scalar.negative_multiplier);
+  const __m128i voutput_zero_point = _mm_set1_epi16(params->scalar.output_zero_point);
+  XNN_FORCE_REALIZATION(vinput_zero_point);
+  XNN_FORCE_REALIZATION(vmultiplier_diff);
+  XNN_FORCE_REALIZATION(vmultiplier_base);
+  XNN_FORCE_REALIZATION(voutput_zero_point);
+
   const __m128i vzero = _mm_setzero_si128();
   for (; batch >= 32 * sizeof(uint8_t); batch -= 32 * sizeof(uint8_t)) {
     const __m128i vx0 = _mm_loadu_si128((const __m128i*) input);
@@ -856,9 +896,15 @@ void xnn_x24_transposec_ukernel__4x4_ssse3(
     size_t input_stride,
     size_t output_stride,
     size_t block_width,
-    size_t block_height,
-    const union xnn_x24_transpose_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
-{
+    size_t block_height) XNN_OOB_READS
+{ 
+  static const uint8_t pos0[16] = {0, 4, 8, 2, 6, 10, 1, 5, 9, 3, 7, 11, -1, -1, -1, -1};
+  static const uint8_t pos1[16] = {4, 8, 12, 6, 10, 14, 5, 9, 13, 7, 11, 15, -1, -1, -1, -1};
+  static const uint8_t pos2[16] = {12, -1, -1, 14, -1, -1, 13, -1, -1, 15, -1, -1, -1, -1, -1, -1};
+  static const uint8_t pos3[16] = {-1, 0, 4, -1, 2, 6, -1, 1, 5, -1, 3, 7, -1, -1, -1, -1};
+  static const uint8_t pos4[16] = {8, 12, -1, 10, 14, -1, 9, 13, -1, 11, 15, -1, -1, -1, -1, -1};
+  static const uint8_t pos5[16] = {-1, -1, 0, -1, -1, 2, -1, -1, 1, -1, -1, 3, -1, -1, -1, -1};
+
   assert(output_stride >= block_height * 3);
   assert(input_stride >= block_width * 3);
 
@@ -882,12 +928,12 @@ void xnn_x24_transposec_ukernel__4x4_ssse3(
   uint8_t* o2 = (uint8_t*) ((uintptr_t) o1 + output_stride);
   uint8_t* o3 = (uint8_t*) ((uintptr_t) o2 + output_stride);
 
-  const __m128i vperm0 = _mm_load_si128((const __m128i*) params->ssse3.pos0);
-  const __m128i vperm1 = _mm_load_si128((const __m128i*) params->ssse3.pos1);
-  const __m128i vperm2 = _mm_load_si128((const __m128i*) params->ssse3.pos2);
-  const __m128i vperm3 = _mm_load_si128((const __m128i*) params->ssse3.pos3);
-  const __m128i vperm4 = _mm_load_si128((const __m128i*) params->ssse3.pos4);
-  const __m128i vperm5 = _mm_load_si128((const __m128i*) params->ssse3.pos5);
+  const __m128i vperm0 = _mm_load_si128((const __m128i*) pos0);
+  const __m128i vperm1 = _mm_load_si128((const __m128i*) pos1);
+  const __m128i vperm2 = _mm_load_si128((const __m128i*) pos2);
+  const __m128i vperm3 = _mm_load_si128((const __m128i*) pos3);
+  const __m128i vperm4 = _mm_load_si128((const __m128i*) pos4);
+  const __m128i vperm5 = _mm_load_si128((const __m128i*) pos5);
   do {
     if XNN_UNPREDICTABLE(block_width < 2) {
       o1 = o0;

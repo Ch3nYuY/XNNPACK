@@ -73,8 +73,7 @@ def xnnpack_slinky_defines():
 
 def xnnpack_if_kleidiai_enabled(enabled = [], not_enabled = []):
     return select({
-        # TODO: b/349993583 - Uncomment when KleidiAI has an official BUILD file.
-        # ":kleidiai_enabled": enabled,
+        "//:kleidiai_enabled": enabled,
         "//conditions:default": not_enabled,
     })
 
@@ -91,6 +90,10 @@ _XNNPACK_ARCH_COPT_MAPPING = {
     }),
     "avx2": select({
         "//build_config:x86": ["-mavx2"],
+        "//conditions:default": [],
+    }),
+    "avx512bw": select({
+        "//build_config:x86": ["-mavx512bw"],
         "//conditions:default": [],
     }),
     "avx512f": select({
@@ -118,11 +121,30 @@ _XNNPACK_ARCH_COPT_MAPPING = {
         "//build_config:x86": ["-msse2"],
         "//conditions:default": [],
     }),
+    "sse41": select({
+        "//build_config:x86": ["-msse4.1"],
+        "//conditions:default": [],
+    }),
     "wasmsimd": [],
 }
 
 def xnnpack_simd_archs():
     return _XNNPACK_ARCH_COPT_MAPPING.keys()
+
+def xnnpack_simd_f32_archs():
+    return ["avx", "avx2", "avx512f", "fma3", "hvx", "neon", "scalar", "sse2", "wasmsimd"]
+
+def xnnpack_simd_f16_archs():
+    return ["scalar"]
+
+def xnnpack_simd_s16_archs():
+    return ["avx2", "avx512bw", "neon", "scalar", "sse41", "wasmsimd"]
+
+def xnnpack_simd_s32_archs():
+    return ["avx2", "avx512f", "neon", "scalar", "sse41", "wasmsimd"]
+
+def xnnpack_simd_s8_archs():
+    return ["scalar"]
 
 def xnnpack_simd_copts_for_arch(arch):
     return _XNNPACK_ARCH_COPT_MAPPING[arch]
@@ -451,7 +473,7 @@ def xnnpack_aggregate_library(
         visibility = ["//:__subpackages__"],
     )
 
-def xnnpack_unit_test(name, srcs, copts = [], mingw_copts = [], msys_copts = [], deps = [], tags = [], linkopts = [], automatic = True, timeout = "short", shard_count = 1):
+def xnnpack_unit_test(name, srcs, copts = [], mingw_copts = [], msys_copts = [], deps = [], tags = [], linkopts = [], defines = [], automatic = True, timeout = "short", shard_count = 1):
     """Unit test binary based on Google Test.
 
     Args:
@@ -466,6 +488,7 @@ def xnnpack_unit_test(name, srcs, copts = [], mingw_copts = [], msys_copts = [],
             (with main() function) is always added as a dependency and does not
             need to be explicitly specified.
       linkopts: The list of linking options
+      defines: List of predefines macros to be added to the compile line.
       tags: List of arbitrary text tags.
       automatic: Whether to create the test or testable binary.
       timeout: How long the test is expected to run before returning.
@@ -495,6 +518,7 @@ def xnnpack_unit_test(name, srcs, copts = [], mingw_copts = [], msys_copts = [],
                 "//conditions:default": [],
             }) + linkopts,
             linkstatic = True,
+            defines = defines,
             deps = [
                 "@com_google_googletest//:gtest_main",
             ] + deps + select({
@@ -528,6 +552,7 @@ def xnnpack_unit_test(name, srcs, copts = [], mingw_copts = [], msys_copts = [],
                 "//conditions:default": [],
             }),
             linkstatic = True,
+            defines = defines,
             deps = [
                 "@com_google_googletest//:gtest_main",
             ] + deps + select({

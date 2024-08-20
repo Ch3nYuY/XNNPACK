@@ -164,18 +164,19 @@ def main(args):
 //   Generator: {generator}
 
 
+#include <gtest/gtest.h>
 #include "xnnpack/common.h"
 #include "xnnpack/isa-checks.h"
 #include "xnnpack/microparams-init.h"
 #include "xnnpack/raddstoreexpminusmax.h"
-
-#include <gtest/gtest.h>
 #include "raddstoreexpminusmax-microkernel-tester.h"
 """.format(specification=options.spec, generator=sys.argv[0])
 
     for ukernel_spec in spec_yaml:
       name = ukernel_spec["name"]
       init_fn = ukernel_spec.get("init")
+      if init_fn is None:
+        init_fn = "nullptr"
       elements_tile, vector_tile, arch, isa = split_ukernel_name(name)
 
       test_case = generate_test_cases(name, init_fn, elements_tile, vector_tile, isa)

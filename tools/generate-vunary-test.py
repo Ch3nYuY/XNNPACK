@@ -39,7 +39,7 @@ parser.set_defaults(defines=list())
 
 def split_ukernel_name(name):
   match = re.fullmatch(
-      r"(?:xnn_|xnn_generate_)(s8|u8|bf16|f16|f32|u32|u64)(_(s8|u8|bf16|f16|f32|u32|u64))*_v(abs|clamp|elu|hswish|log|lrelu|neg|relu|rndd|rndne|rndu|rndz|rsqrt|sigmoid|sqr|sqrt|sqrtshift|tanh)_(fact_)?ukernel__(.+)_u(\d+)(v)?",
+      r"(?:xnn_|xnn_generate_)(s8|u8|bf16|f16|f32|u32|u64)(_(s8|u8|bf16|f16|f32|u32|u64))*_v(abs|clamp|elu|exp|gelu|hswish|log|lrelu|neg|relu|rndd|rndne|rndu|rndz|rsqrt|sigmoid|sqr|sqrt|sqrtshift|tanh)_(fact_)?ukernel__(.+)_u(\d+)(v)?",
       name,
   )
   if match is None:
@@ -48,6 +48,8 @@ def split_ukernel_name(name):
       "abs": "Abs",
       "clamp": "Clamp",
       "elu": "ELU",
+      "exp": "Exp",
+      "gelu": "GELU",
       "hswish": "HardSwish",
       "log": "Log",
       "lrelu": "LeakyReLU",
@@ -88,12 +90,24 @@ SPECIAL_VALUES_F32 = {
         # `cmake-linux-riscv64-rvv` (but not on `cmake-linux-riscv64`).
         3,
     ),
-    # TODO(b/338031720) - These kernels currently do not handle inputs `<= 0.0f`
-    # correctly. Add tests for `0.0f`, `-0.0f`, and `+/-INFINITY` once they do.
     "Log": (
-        1,  # Number of elements.
-        "{1.0f}",  # Inputs.
-        "{0.0f}",  # Expected outputs.
+        4,  # Number of elements.
+        "{1.0f, -1.0f, 0.0f, -0.0f}",  # Inputs.
+        "{0.0f, NAN, -INFINITY, -INFINITY}",  # Expected outputs.
+        "xnn_f32_default_params",
+        1,  # Error margin in ULP.
+    ),
+    "GELU": (
+        3,  # Number of elements.
+        "{-6.0f, 6.0f, 0.0f}",  # Inputs.
+        "{0.0f, 6.0f, 0.0f}",  # Expected outputs.
+        "xnn_f32_default_params",
+        1,  # Error margin in ULP.
+    ),
+    "Exp": (
+        3,  # Number of elements.
+        "{0.0f, -1e3f, 1e3f}",  # Inputs.
+        "{1.0f, 0.0f, INFINITY}",  # Expected outputs.
         "xnn_f32_default_params",
         1,  # Error margin in ULP.
     ),
@@ -104,7 +118,10 @@ TEST(${TEST_NAME}, batch_eq_${BATCH_TILE}${BATCH_SUFFIX}) {
   $if ISA_CHECK:
     ${ISA_CHECK};
   VUnaryMicrokernelTester()
-    .batch_size(${BATCH_TILE}${BATCH_SCALE})
+    $if BATCH_SCALE:
+      .batch_size(${BATCH_TILE} * ${BATCH_SCALE})
+    $else:
+      .batch_size(${BATCH_TILE})
     .${TEST_FN}(${", ".join(TEST_ARGS)});
 }
 
@@ -112,7 +129,11 @@ $if BATCH_TILE > 1 or BATCH_SCALE != "":
   TEST(${TEST_NAME}, batch_div_${BATCH_TILE}${BATCH_SUFFIX}) {
     $if ISA_CHECK:
       ${ISA_CHECK};
-    for (size_t batch_size = ${BATCH_TILE*2}${BATCH_SCALE}; batch_size < ${BATCH_TILE*10}${BATCH_SCALE}; batch_size += ${BATCH_TILE}${BATCH_SCALE}) {
+    $if BATCH_SCALE:
+      const size_t batch_step = ${BATCH_TILE} * ${BATCH_SCALE};
+    $else:
+      const size_t batch_step = ${BATCH_TILE};
+    for (size_t batch_size = 2 * batch_step; batch_size < 10 * batch_step; batch_size += batch_step) {
       VUnaryMicrokernelTester()
         .batch_size(batch_size)
         .${TEST_FN}(${", ".join(TEST_ARGS)});
@@ -122,7 +143,11 @@ $if BATCH_TILE > 1 or BATCH_SCALE != "":
   TEST(${TEST_NAME}, batch_lt_${BATCH_TILE}${BATCH_SUFFIX}) {
     $if ISA_CHECK:
       ${ISA_CHECK};
-    for (size_t batch_size = 1; batch_size < ${BATCH_TILE}${BATCH_SCALE}; batch_size++) {
+    $if BATCH_SCALE:
+      const size_t batch_step = ${BATCH_TILE} * ${BATCH_SCALE};
+    $else:
+      const size_t batch_step = ${BATCH_TILE};
+    for (size_t batch_size = 1; batch_size < batch_step; batch_size++) {
       VUnaryMicrokernelTester()
         .batch_size(batch_size)
         .${TEST_FN}(${", ".join(TEST_ARGS)});
@@ -132,7 +157,11 @@ $if BATCH_TILE > 1 or BATCH_SCALE != "":
 TEST(${TEST_NAME}, batch_gt_${BATCH_TILE}${BATCH_SUFFIX}) {
   $if ISA_CHECK:
     ${ISA_CHECK};
-  for (size_t batch_size = ${BATCH_TILE}${BATCH_SCALE} + 1; batch_size < ${10 if BATCH_TILE == 1 else BATCH_TILE*2}${BATCH_SCALE}; batch_size++) {
+  $if BATCH_SCALE:
+    const size_t batch_step = ${BATCH_TILE} * ${BATCH_SCALE};
+  $else:
+    const size_t batch_step = ${BATCH_TILE};
+  for (size_t batch_size = batch_step + 1; batch_size < ${10 if BATCH_TILE == 1 else "2 * batch_step"}; batch_size++) {
     VUnaryMicrokernelTester()
       .batch_size(batch_size)
       .${TEST_FN}(${", ".join(TEST_ARGS)});
@@ -143,7 +172,11 @@ $if OP_TYPE != "SquareRootShift":
   TEST(${TEST_NAME}, inplace) {
     $if ISA_CHECK:
       ${ISA_CHECK};
-    for (size_t batch_size = 1; batch_size <= ${BATCH_TILE*5}${BATCH_SCALE}; batch_size += ${max(1, BATCH_TILE-1)}) {
+    $if BATCH_SCALE:
+      const size_t batch_step = ${BATCH_TILE} * ${BATCH_SCALE};
+    $else:
+      const size_t batch_step = ${BATCH_TILE};
+    for (size_t batch_size = 1; batch_size <= batch_step; batch_size += ${max(1, BATCH_TILE-1)}) {
       VUnaryMicrokernelTester()
         .batch_size(batch_size)
         .inplace(true)
@@ -155,8 +188,12 @@ $if OP_TYPE == "Clamp":
   TEST(${TEST_NAME}, qmin) {
     $if ISA_CHECK:
       ${ISA_CHECK};
-    for (uint8_t qmin = 1; qmin < 255; qmin++) {
-      for (size_t batch_size = 1; batch_size <= ${BATCH_TILE*5}${BATCH_SCALE}; batch_size += ${max(1, BATCH_TILE-1 if BATCH_SCALE == "" else (BATCH_TILE * 10 - 1))}) {
+    $if BATCH_SCALE:
+      const size_t batch_step = ${BATCH_TILE} * ${BATCH_SCALE};
+    $else:
+      const size_t batch_step = ${BATCH_TILE};
+    for (size_t qmin = 1; qmin < 255; qmin = xnnpack::NextPrime(qmin)) {
+      for (size_t batch_size = 1; batch_size <= 5 * batch_step; batch_size += ${max(1, BATCH_TILE-1) if BATCH_SCALE == "" else "batch_step - 1"}) {
         VUnaryMicrokernelTester()
           .batch_size(batch_size)
           .qmin(qmin)
@@ -168,8 +205,12 @@ $if OP_TYPE == "Clamp":
   TEST(${TEST_NAME}, qmax) {
     $if ISA_CHECK:
       ${ISA_CHECK};
-    for (uint8_t qmax = 1; qmax < 255; qmax++) {
-      for (size_t batch_size = 1; batch_size <= ${BATCH_TILE*5}${BATCH_SCALE}; batch_size += ${max(1, BATCH_TILE-1 if BATCH_SCALE == "" else (BATCH_TILE * 10 - 1))}) {
+    $if BATCH_SCALE:
+      const size_t batch_step = ${BATCH_TILE} * ${BATCH_SCALE};
+    $else:
+      const size_t batch_step = ${BATCH_TILE};
+    for (size_t qmax = 1; qmax < 255; qmax = xnnpack::NextPrime(qmax)) {
+      for (size_t batch_size = 1; batch_size <= 5 * batch_step; batch_size += ${max(1, BATCH_TILE-1) if BATCH_SCALE == "" else "batch_step - 1"}) {
         VUnaryMicrokernelTester()
           .batch_size(batch_size)
           .qmax(qmax)
@@ -182,8 +223,12 @@ $if OP_TYPE == "ELU":
   TEST(${TEST_NAME}, prescale) {
     $if ISA_CHECK:
       ${ISA_CHECK};
+    $if BATCH_SCALE:
+      const size_t batch_step = ${BATCH_TILE} * ${BATCH_SCALE};
+    $else:
+      const size_t batch_step = ${BATCH_TILE};
     for (float prescale : std::array<float, 2>({0.1f, 10.0f})) {
-      for (size_t batch_size = 1; batch_size <= ${BATCH_TILE*5}${BATCH_SCALE}; batch_size += ${max(1, BATCH_TILE-1)}) {
+      for (size_t batch_size = 1; batch_size <= 5 * batch_step; batch_size += ${max(1, BATCH_TILE-1)}) {
         VUnaryMicrokernelTester()
           .batch_size(batch_size)
           .prescale(prescale)
@@ -195,8 +240,12 @@ $if OP_TYPE == "ELU":
   TEST(${TEST_NAME}, alpha) {
     $if ISA_CHECK:
       ${ISA_CHECK};
+    $if BATCH_SCALE:
+      const size_t batch_step = ${BATCH_TILE} * ${BATCH_SCALE};
+    $else:
+      const size_t batch_step = ${BATCH_TILE};
     for (float alpha : std::array<float, 2>({0.3f, 3.0f})) {
-      for (size_t batch_size = 1; batch_size <= ${BATCH_TILE*5}${BATCH_SCALE}; batch_size += ${max(1, BATCH_TILE-1)}) {
+      for (size_t batch_size = 1; batch_size <= 5 * batch_step; batch_size += ${max(1, BATCH_TILE-1)}) {
         VUnaryMicrokernelTester()
           .batch_size(batch_size)
           .alpha(alpha)
@@ -208,8 +257,12 @@ $if OP_TYPE == "ELU":
   TEST(${TEST_NAME}, beta) {
     $if ISA_CHECK:
       ${ISA_CHECK};
+    $if BATCH_SCALE:
+      const size_t batch_step = ${BATCH_TILE} * ${BATCH_SCALE};
+    $else:
+      const size_t batch_step = ${BATCH_TILE};
     for (float beta : std::array<float, 2>({0.3f, 3.0f})) {
-      for (size_t batch_size = 1; batch_size <= ${BATCH_TILE*5}${BATCH_SCALE}; batch_size += ${max(1, BATCH_TILE-1)}) {
+      for (size_t batch_size = 1; batch_size <= 5 * batch_step; batch_size += ${max(1, BATCH_TILE-1)}) {
         VUnaryMicrokernelTester()
           .batch_size(batch_size)
           .beta(beta)
@@ -222,8 +275,12 @@ $if OP_TYPE == "LeakyReLU":
   TEST(${TEST_NAME}, slope) {
     $if ISA_CHECK:
       ${ISA_CHECK};
+    $if BATCH_SCALE:
+      const size_t batch_step = ${BATCH_TILE} * ${BATCH_SCALE};
+    $else:
+      const size_t batch_step = ${BATCH_TILE};
     for (float slope : std::array<float, 3>({-0.7f, 0.3f, 1.3f})) {
-      for (size_t batch_size = 1; batch_size <= ${BATCH_TILE*5}${BATCH_SCALE}; batch_size += ${max(1, BATCH_TILE-1)}) {
+      for (size_t batch_size = 1; batch_size <= 5 * batch_step; batch_size += ${max(1, BATCH_TILE-1)}) {
         VUnaryMicrokernelTester()
           .batch_size(batch_size)
           .slope(slope)
@@ -236,8 +293,12 @@ $if OP_TYPE == "SquareRootShift":
   TEST(${TEST_NAME}, shift) {
     $if ISA_CHECK:
       ${ISA_CHECK};
+    $if BATCH_SCALE:
+      const size_t batch_step = ${BATCH_TILE} * ${BATCH_SCALE};
+    $else:
+      const size_t batch_step = ${BATCH_TILE};
     for (uint32_t shift = 0; shift < 32; shift++) {
-      for (size_t batch_size = 1; batch_size <= ${BATCH_TILE*5}${BATCH_SCALE}; batch_size += ${max(1, BATCH_TILE-1)}) {
+      for (size_t batch_size = 1; batch_size <= 5 * batch_step; batch_size += ${max(1, BATCH_TILE-1)}) {
         VUnaryMicrokernelTester()
           .batch_size(batch_size)
           .shift(shift)
@@ -313,9 +374,9 @@ def generate_test_cases(
   if vector_tile:
     ctype = {"f16": "uint16_t", "f32": "float"}[datatype]
     batch_scale = {
-        "rvv": " * xnn_init_hardware_config()->vlenb / sizeof(%s)" % ctype,
+        "rvv": "xnn_init_hardware_config()->vlenb / sizeof(%s)" % ctype,
         "rvvfp16arith": (
-            " * xnn_init_hardware_config()->vlenb / sizeof(%s)" % ctype
+            "xnn_init_hardware_config()->vlenb / sizeof(%s)" % ctype
         ),
     }[isa]
   return xngen.preprocess(
@@ -331,10 +392,12 @@ def generate_test_cases(
           "ISA_CHECK": xnncommon.generate_isa_check_macro(isa),
           "SPECIAL_VALUES_F32": SPECIAL_VALUES_F32,
           "TEST_FN": {
-              "Square": "TestSqr",
               "Abs": "TestAbs",
+              "GELU": "TestGelu",
+              "Exp": "TestExp",
               "Log": "TestLog",
               "Negate": "TestNeg",
+              "Square": "TestSqr",
           }.get(op_type, "Test"),
       },
   )
@@ -361,17 +424,18 @@ def main(args):
 
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <cstddef>
 #include <limits>
 
+#include <gtest/gtest.h>
 #include "xnnpack.h"
 #include "xnnpack/common.h"
 #include "xnnpack/isa-checks.h"
 #include "xnnpack/microparams-init.h"
 #include "xnnpack/microparams.h"
 #include "xnnpack/vunary.h"
-
-#include <gtest/gtest.h>
+#include "next_prime.h"
 #include "vunary-microkernel-tester.h"
 """.format(specification=options.spec, generator=sys.argv[0])
 

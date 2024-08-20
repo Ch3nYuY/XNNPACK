@@ -864,15 +864,15 @@ static inline vfloat32m4_t softexp_f32m4(
   // with a simple shift into the exponent field.
   // xmin = round(-126.5 * log(2), single, RU) ~ -87.68311309814453125
 
-  const float xmin = params->rvv_rr2_p6.x_min;
-  const float r_ln2f = params->rvv_rr2_p6.log2e;
-  const float l2uf = params->rvv_rr2_p6.ln2_hi;
-  const float l2lf = params->rvv_rr2_p6.ln2_lo;
-  const float c6 = params->rvv_rr2_p6.c6;
-  const float c5 = params->rvv_rr2_p6.c5;
-  const float c4 = params->rvv_rr2_p6.c4;
-  const float c3 = params->rvv_rr2_p6.c3;
-  const float c2 = params->rvv_rr2_p6.c2;
+  const float xmin = -0x1.5ebb82p6;
+  const float r_ln2f = 0x1.715476p+0f;
+  const float l2uf = 0x1.62E400p-1f;
+  const float l2lf = 0x1.7F7D1Cp-20f;
+  const float c6 = 0x1.6850e4p-10f;
+  const float c5 = 0x1.123bccp-7;
+  const float c4 = 0x1.555b98p-5f;
+  const float c3 = 0x1.55548ep-3f;
+  const float c2 = 0x1.fffff8p-2f;
 
   // const float xmin = -0x1.5ebb82p6;
   x = __riscv_vfmax_vf_f32m4(x, xmin, vl);
@@ -1517,6 +1517,86 @@ void xnn_f32_vcmul_ukernel__rvv_u2v(
   }
 }
 
+void xnn_f32_vlrelu_ukernel__rvv_u4v(
+    size_t batch,
+    const float* input,
+    float* output,
+    const union xnn_f32_lrelu_params params[restrict XNN_MIN_ELEMENTS(1)])
+{
+  assert(batch != 0);
+  assert(batch % sizeof(float) == 0);
+  assert(input != NULL);
+  assert(output != NULL);
+
+  const float slope = params->scalar.slope;
+  batch >>= XNN_LOG2_SIZEOF_FLOAT;
+
+  do {
+    size_t n = __riscv_vsetvl_e32m4(batch); batch -= n;
+    vfloat32m4_t in_f32v = __riscv_vle32_v_f32m4(input, n); input += n;
+    vbool8_t mask_f32v = __riscv_vmflt_vf_f32m4_b8(in_f32v, 0.0f, n);
+    vfloat32m4_t out_f32v = __riscv_vfmul_vf_f32m4_mu(mask_f32v, in_f32v, in_f32v, slope, n);
+    __riscv_vse32_v_f32m4(output, out_f32v, n); output += n;
+  } while (batch != 0);
+}
+
+void xnn_f32_vrelu_ukernel__rvv_u4v(
+    size_t batch,
+    const float* input,
+    float* output,
+    const union xnn_f32_relu_params params[restrict XNN_MIN_ELEMENTS(1)])
+{
+  assert(batch != 0);
+  assert(batch % sizeof(float) == 0);
+  assert(input != NULL);
+  assert(output != NULL);
+
+  float zero = 0.0f;
+  size_t batch_ = batch >> XNN_LOG2_SIZEOF_FLOAT;
+
+  for (; batch_ > 0; ) {
+    size_t n = __riscv_vsetvl_e32m4(batch_); batch_ -= n;
+    vfloat32m4_t in_f32v = __riscv_vle32_v_f32m4(input, n); input += n;
+    vfloat32m4_t out_f32v = __riscv_vfmax_vf_f32m4(in_f32v, zero, n);
+    __riscv_vse32_v_f32m4(output, out_f32v, n); output += n;
+  }
+}
+
+void xnn_f32_vrsqrt_ukernel__rvv_rsqrt_u4v(
+    size_t batch,
+    const float* input,
+    float* output,
+    const union xnn_f32_rsqrt_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+{
+  assert(batch != 0);
+  assert(batch % sizeof(float) == 0);
+  assert(input != NULL);
+  assert(output != NULL);
+
+  batch >>= XNN_LOG2_SIZEOF_FLOAT;
+
+  vfloat32m4_t onephalf_f32v = __riscv_vfmv_v_f_f32m4(1.5f, __riscv_vsetvl_e32m4(batch));
+  for (; batch > 0; ) {
+    int32_t n = __riscv_vsetvl_e32m4(batch); batch -= n;
+    vfloat32m4_t in_f32v = __riscv_vle32_v_f32m4(input, n); input += n;
+
+    vfloat32m4_t t0_f32v = __riscv_vfrsqrt7_v_f32m4(in_f32v, n);
+    vfloat32m4_t in_half_f32v = __riscv_vfmul_vf_f32m4(in_f32v, 0.5f, n);
+
+    // First Newton-Raphson iteration
+    vfloat32m4_t t1_f32v = __riscv_vfmul_vv_f32m4(t0_f32v, t0_f32v, n);
+    vfloat32m4_t t2_f32v = __riscv_vfnmsub_vv_f32m4(in_half_f32v, t1_f32v, onephalf_f32v, n);
+    t0_f32v = __riscv_vfmul_vv_f32m4(t0_f32v, t2_f32v, n);
+
+    // Second Newton-Raphson iteration
+    t1_f32v = __riscv_vfmul_vv_f32m4(t0_f32v, t0_f32v, n);
+    t2_f32v = __riscv_vfnmsub_vv_f32m4(in_half_f32v, t1_f32v, onephalf_f32v, n);
+    vfloat32m4_t y_f32v = __riscv_vfmul_vv_f32m4(t0_f32v, t2_f32v, n);
+
+    __riscv_vse32_v_f32m4(output, y_f32v, n); output += n;
+  }
+}
+
 void xnn_qs8_vmul_minmax_fp32_ukernel__rvv_u2v(
     size_t batch,
     const int8_t* input_a,
@@ -1530,13 +1610,13 @@ void xnn_qs8_vmul_minmax_fp32_ukernel__rvv_u2v(
   assert(input_b != NULL);
   assert(output != NULL);
 
-  const int32_t a_zero_point = params->fp32_scalar.a_zero_point;
-  const int32_t b_zero_point = params->fp32_scalar.b_zero_point;
-  const float scale = params->fp32_scalar.scale;
-  const float output_min_less_zero_point = params->fp32_scalar.output_min_less_zero_point;
-  const float output_max_less_zero_point = params->fp32_scalar.output_max_less_zero_point;
-  const float magic_bias = params->fp32_scalar.magic_bias;
-  const int32_t magic_bias_less_output_zero_point = params->fp32_scalar.magic_bias_less_output_zero_point;
+  const int32_t a_zero_point = params->scalar.a_zero_point;
+  const int32_t b_zero_point = params->scalar.b_zero_point;
+  const float scale = params->scalar.scale;
+  const float output_min_less_zero_point = (int32_t) params->scalar.output_min - (int32_t) params->scalar.output_zero_point;
+  const float output_max_less_zero_point = (int32_t) params->scalar.output_max - (int32_t) params->scalar.output_zero_point;
+  const float magic_bias = 12582912.0f;
+  const int32_t magic_bias_less_output_zero_point = INT32_C(0x4B400000) - (int32_t) params->scalar.output_zero_point;
 
   do {
     const size_t n = __riscv_vsetvl_e8m2(batch);
@@ -1575,14 +1655,14 @@ void xnn_qs8_vmulc_minmax_fp32_ukernel__rvv_u2v(
   assert(input_b != NULL);
   assert(output != NULL);
 
-  const int32_t a_zero_point = params->fp32_scalar.a_zero_point;
-  const float scale = params->fp32_scalar.scale;
-  const float output_min_less_zero_point = params->fp32_scalar.output_min_less_zero_point;
-  const float output_max_less_zero_point = params->fp32_scalar.output_max_less_zero_point;
-  const float magic_bias = params->fp32_scalar.magic_bias;
-  const int32_t magic_bias_less_output_zero_point = params->fp32_scalar.magic_bias_less_output_zero_point;
-  const int32_t vb = (int32_t) *input_b - params->fp32_scalar.b_zero_point;
+  const int32_t a_zero_point = params->scalar.a_zero_point;
+  const float scale = params->scalar.scale;
+  const float output_min_less_zero_point = (int32_t) params->scalar.output_min - (int32_t) params->scalar.output_zero_point;
+  const float output_max_less_zero_point = (int32_t) params->scalar.output_max - (int32_t) params->scalar.output_zero_point;
+  const float magic_bias = 12582912.0f;
+  const int32_t magic_bias_less_output_zero_point = INT32_C(0x4B400000) - (int32_t) params->scalar.output_zero_point;
 
+  const int32_t vb = (int32_t) *input_b - params->scalar.b_zero_point;
   do {
     const size_t n = __riscv_vsetvl_e8m2(batch);
 
@@ -1618,13 +1698,13 @@ void xnn_qu8_vmul_minmax_fp32_ukernel__rvv_u2v(
   assert(input_b != NULL);
   assert(output != NULL);
 
-  const int32_t a_zero_point = params->fp32_scalar.a_zero_point;
-  const int32_t b_zero_point = params->fp32_scalar.b_zero_point;
-  const float scale = params->fp32_scalar.scale;
-  const float output_min_less_zero_point = params->fp32_scalar.output_min_less_zero_point;
-  const float output_max_less_zero_point = params->fp32_scalar.output_max_less_zero_point;
-  const float magic_bias = params->fp32_scalar.magic_bias;
-  const int32_t magic_bias_less_output_zero_point = params->fp32_scalar.magic_bias_less_output_zero_point;
+  const int32_t a_zero_point = params->scalar.a_zero_point;
+  const int32_t b_zero_point = params->scalar.b_zero_point;
+  const float scale = params->scalar.scale;
+  const float output_min_less_zero_point = (int32_t) params->scalar.output_min - (int32_t) params->scalar.output_zero_point;
+  const float output_max_less_zero_point = (int32_t) params->scalar.output_max - (int32_t) params->scalar.output_zero_point;
+  const float magic_bias = 12582912.0f;
+  const int32_t magic_bias_less_output_zero_point = INT32_C(0x4B400000) - (int32_t) params->scalar.output_zero_point;
 
   do {
     const size_t n = __riscv_vsetvl_e8m2(batch);
@@ -1665,14 +1745,14 @@ void xnn_qu8_vmulc_minmax_fp32_ukernel__rvv_u2v(
   assert(input_b != NULL);
   assert(output != NULL);
 
-  const int32_t a_zero_point = params->fp32_scalar.a_zero_point;
-  const float scale = params->fp32_scalar.scale;
-  const float output_min_less_zero_point = params->fp32_scalar.output_min_less_zero_point;
-  const float output_max_less_zero_point = params->fp32_scalar.output_max_less_zero_point;
-  const float magic_bias = params->fp32_scalar.magic_bias;
-  const int32_t magic_bias_less_output_zero_point = params->fp32_scalar.magic_bias_less_output_zero_point;
-  const int32_t vb = (int32_t) *input_b - params->fp32_scalar.b_zero_point;
+  const int32_t a_zero_point = params->scalar.a_zero_point;
+  const float scale = params->scalar.scale;
+  const float output_min_less_zero_point = (int32_t) params->scalar.output_min - (int32_t) params->scalar.output_zero_point;
+  const float output_max_less_zero_point = (int32_t) params->scalar.output_max - (int32_t) params->scalar.output_zero_point;
+  const float magic_bias = 12582912.0f;
+  const int32_t magic_bias_less_output_zero_point = INT32_C(0x4B400000) - (int32_t) params->scalar.output_zero_point;
 
+  const int32_t vb = (int32_t) *input_b - params->scalar.b_zero_point;
   do {
     const size_t n = __riscv_vsetvl_e8m2(batch);
 
@@ -1702,8 +1782,7 @@ void xnn_x32_transposec_ukernel__16x8_rvv(
   size_t input_stride,
   size_t output_stride,
   size_t block_width,
-  size_t block_height,
-  const union xnn_x32_transpose_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+  size_t block_height) XNN_OOB_READS
 {
   assert(block_width == 1 || output_stride >= block_height * sizeof(uint32_t));
   assert(block_height == 1 || input_stride >= block_width * sizeof(uint32_t));
@@ -2041,8 +2120,7 @@ void xnn_x32_transposec_ukernel__32x8_rvv(
   size_t input_stride,
   size_t output_stride,
   size_t block_width,
-  size_t block_height,
-  const union xnn_x32_transpose_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+  size_t block_height) XNN_OOB_READS
 {
   assert(block_width == 1 || output_stride >= block_height * sizeof(uint32_t));
   assert(block_height == 1 || input_stride >= block_width * sizeof(uint32_t));
@@ -2391,8 +2469,7 @@ void xnn_x32_transposec_ukernel__4x4_rvv(
   size_t input_stride,
   size_t output_stride,
   size_t block_width,
-  size_t block_height,
-  const union xnn_x32_transpose_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+  size_t block_height) XNN_OOB_READS
 {
   assert(block_width == 1 || output_stride >= block_height * sizeof(uint32_t));
   assert(block_height == 1 || input_stride >= block_width * sizeof(uint32_t));
@@ -2544,8 +2621,7 @@ void xnn_x32_transposec_ukernel__8x8_rvv(
   size_t input_stride,
   size_t output_stride,
   size_t block_width,
-  size_t block_height,
-  const union xnn_x32_transpose_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+  size_t block_height) XNN_OOB_READS
 {
   assert(block_width == 1 || output_stride >= block_height * sizeof(uint32_t));
   assert(block_height == 1 || input_stride >= block_width * sizeof(uint32_t));

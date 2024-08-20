@@ -48,6 +48,9 @@ struct xnn_hardware_config {
   bool use_x86_avx512amx;
   bool use_x86_avx512fp16;
   bool use_x86_avxvnni;
+  bool use_x86_avx256skx;
+  bool use_x86_avx256vnni;
+  bool use_x86_avx256vnnigfni;
 #endif
 #if XNN_ARCH_RISCV
   bool use_riscv_vector;
@@ -67,6 +70,7 @@ struct xnn_hardware_config {
   bool use_wasm_blendvps;
   bool use_wasm_pshufb;
   bool use_wasm_sdot;
+  bool use_wasm_usdot;
   bool use_wasm_fma;
 #endif  // XNN_ARCH_WASMRELAXEDSIMD
 #if XNN_ARCH_HEXAGON

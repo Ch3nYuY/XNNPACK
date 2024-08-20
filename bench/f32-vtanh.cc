@@ -10,17 +10,14 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "xnnpack.h"
-#include "xnnpack/aligned-allocator.h"
+#include <benchmark/benchmark.h>
+#include "bench/f32-vunary-benchmark.h"
+#include "bench/utils.h"
 #include "xnnpack/common.h"
 #include "xnnpack/microfnptr.h"
 #include "xnnpack/microparams-init.h"
 #include "xnnpack/microparams.h"
 #include "xnnpack/vunary.h"
-
-#include "bench/f32-vunary-benchmark.h"
-#include "bench/utils.h"
-#include <benchmark/benchmark.h>
 
 void f32_vtanh(benchmark::State& state, xnn_f32_vtanh_ukernel_fn ukernel,
               xnn_init_f32_tanh_params_fn init_params = nullptr,
@@ -81,36 +78,6 @@ BENCHMARK_CAPTURE(f32_vtanh, scalar_rational_9_6_div_u4,
 BENCHMARK_CAPTURE(f32_vtanh, scalar_rational_9_6_div_u8,
                   xnn_f32_vtanh_ukernel__scalar_rational_9_6_div_u8,
                   /*init_params=*/nullptr)
-  ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
-  ->UseRealTime();
-BENCHMARK_CAPTURE(f32_vtanh, fma_expm1minus_rr1_lut8_p4h3ts_div_u1,
-                  xnn_f32_vtanh_ukernel__fma_expm1minus_rr1_lut8_p4h3ts_div_u1,
-                  xnn_init_f32_tanh_scalar_expm1minus_rr1_lut8_p4h3_params)
-  ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
-  ->UseRealTime();
-BENCHMARK_CAPTURE(f32_vtanh, fma_expm1minus_rr1_lut8_p4h3ts_div_u2,
-                  xnn_f32_vtanh_ukernel__fma_expm1minus_rr1_lut8_p4h3ts_div_u2,
-                  xnn_init_f32_tanh_scalar_expm1minus_rr1_lut8_p4h3_params)
-  ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
-  ->UseRealTime();
-BENCHMARK_CAPTURE(f32_vtanh, fma_expm1minus_rr1_lut8_p4h3ts_div_u4,
-                  xnn_f32_vtanh_ukernel__fma_expm1minus_rr1_lut8_p4h3ts_div_u4,
-                  xnn_init_f32_tanh_scalar_expm1minus_rr1_lut8_p4h3_params)
-  ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
-  ->UseRealTime();
-BENCHMARK_CAPTURE(f32_vtanh, fma_expm1minus_rr1_p6h5ts_div_u1,
-                  xnn_f32_vtanh_ukernel__fma_expm1minus_rr1_p6h5ts_div_u1,
-                  xnn_init_f32_tanh_scalar_expm1minus_rr1_p6h5_params)
-  ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
-  ->UseRealTime();
-BENCHMARK_CAPTURE(f32_vtanh, fma_expm1minus_rr1_p6h5ts_div_u2,
-                  xnn_f32_vtanh_ukernel__fma_expm1minus_rr1_p6h5ts_div_u2,
-                  xnn_init_f32_tanh_scalar_expm1minus_rr1_p6h5_params)
-  ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
-  ->UseRealTime();
-BENCHMARK_CAPTURE(f32_vtanh, fma_expm1minus_rr1_p6h5ts_div_u4,
-                  xnn_f32_vtanh_ukernel__fma_expm1minus_rr1_p6h5ts_div_u4,
-                  xnn_init_f32_tanh_scalar_expm1minus_rr1_p6h5_params)
   ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
   ->UseRealTime();
 #if XNN_ARCH_WASM || XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD

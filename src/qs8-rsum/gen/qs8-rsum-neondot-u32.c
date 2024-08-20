@@ -12,7 +12,6 @@
 #include <arm_neon.h>
 
 #include "xnnpack/common.h"
-#include "xnnpack/math.h"
 #include "xnnpack/reduce.h"
 
 void xnn_qs8_rsum_ukernel__neondot_u32(
@@ -26,12 +25,16 @@ void xnn_qs8_rsum_ukernel__neondot_u32(
   assert(output != NULL);
   assert(params != NULL);
 
+  XNN_ALIGN(16) static const int8_t onemask_table[32] = {
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  };
+
   const int8x16_t vone = vdupq_n_s8(INT8_C(1));
   int32x4_t vacc0 = vmovq_n_s32(0);
   for (; batch >= 32; batch -= 32) {
     const int8x16_t vt0 = vld1q_s8(input); input += 16;
     const int8x16_t vt1 = vld1q_s8(input); input += 16;
-
     vacc0 = vdotq_s32(vacc0, vt0, vone);
     vacc0 = vdotq_s32(vacc0, vt1, vone);
   }
@@ -42,8 +45,8 @@ void xnn_qs8_rsum_ukernel__neondot_u32(
     }
     if (XNN_UNLIKELY(batch != 0)) {
       int8x16_t vt = vld1q_s8(input);
-      const int8x16_t vmask = vld1q_s8(&params->neon.mask_table[15 - batch]);
-      vacc0 = vdotq_s32(vacc0, vt, vmask);
+      const int8x16_t vonemask = vld1q_s8(&onemask_table[16 - batch]);
+      vacc0 = vdotq_s32(vacc0, vt, vonemask);
     }
   }
 

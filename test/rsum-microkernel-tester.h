@@ -5,11 +5,6 @@
 
 #pragma once
 
-#include "xnnpack.h"
-#include "xnnpack/microfnptr.h"
-#include "xnnpack/microparams.h"
-#include "xnnpack/requantization.h"
-
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -21,9 +16,13 @@
 #include <random>
 #include <vector>
 
-#include "replicable_random_device.h"
 #include <gtest/gtest.h>
 #include <fp16/fp16.h>
+#include "xnnpack.h"
+#include "xnnpack/microfnptr.h"
+#include "xnnpack/microparams.h"
+#include "xnnpack/requantization.h"
+#include "replicable_random_device.h"
 
 class RSumMicrokernelTester {
  public:
@@ -104,7 +103,7 @@ class RSumMicrokernelTester {
   }
 
   void Test(xnn_qs8_rsum_ukernel_fn rsum,
-      xnn_init_qs8_rsum_params_fn init_params) const {
+      xnn_init_qs8_rsum_params_fn init_params = nullptr) const {
     xnnpack::ReplicableRandomDevice rng;
     std::uniform_int_distribution<int32_t> i8dist(
       std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max());
@@ -122,7 +121,9 @@ class RSumMicrokernelTester {
 
       // Prepare parameters
       union xnn_qs8_rsum_params params;
-      init_params(&params);
+      if (init_params) {
+        init_params(&params);
+      }
 
       // Call optimized micro-kernel.
       int32_t output = output_init;
@@ -157,7 +158,7 @@ class RSumMicrokernelTester {
       rsum(batch_size() * sizeof(uint16_t), input.data(), &output, &params);
 
       // Verify results.
-      EXPECT_NEAR(fp16_ieee_to_fp32_value(output), output_ref, std::abs(output_ref) * 2.0e-3f)
+      EXPECT_NEAR(fp16_ieee_to_fp32_value(output), output_ref, std::abs(output_ref) * 4.0e-3f)
         << "with batch " << batch_size() << ", scale " << scale();
     }
   }
@@ -191,7 +192,7 @@ class RSumMicrokernelTester {
     }
   }
 
-  void Test(xnn_f32_rsum_ukernel_fn rsum, xnn_init_f32_scale_params_fn init_params) const {
+  void Test(xnn_f32_rsum_ukernel_fn rsum, xnn_init_f32_scaleminmax_params_fn init_params) const {
     xnnpack::ReplicableRandomDevice rng;
     std::uniform_real_distribution<float> f32dist(0.01f, 1.0f);
 
@@ -199,12 +200,21 @@ class RSumMicrokernelTester {
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
 
-      // Compute reference results.
-      const double output_ref = std::accumulate(input.begin(), input.begin() + batch_size(), 0.0) * double(scale());
-
       // Prepare parameters.
-      xnn_f32_scale_params params;
-      init_params(&params, scale());
+      xnn_f32_scaleminmax_params params;
+      auto input_min = std::min_element(input.begin(), input.end());
+      auto input_max = std::max_element(input.begin(), input.end());
+      const double mi = *input_min + (*input_max - *input_min) * 0.05;
+      const double ma = *input_max - (*input_min - *input_max) * 0.05;
+      init_params(&params, scale(), mi, ma);
+
+      // Compute reference results.
+      const double output_ref =
+          std::max(
+            std::min(
+              std::accumulate(input.begin(), input.begin() + batch_size(), 0.0) * double(scale()),
+              ma),
+            mi);
 
       // Call optimized micro-kernel.
       float output = 0.f;

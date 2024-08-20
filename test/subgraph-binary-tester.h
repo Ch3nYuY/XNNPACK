@@ -5,12 +5,6 @@
 
 #pragma once
 
-#include "xnnpack.h"
-#include "xnnpack/node-type.h"
-#include "xnnpack/operator.h"
-#include "xnnpack/requantization.h"
-#include "xnnpack/subgraph.h"
-
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -21,8 +15,13 @@
 #include <random>
 #include <vector>
 
-#include "replicable_random_device.h"
 #include <gtest/gtest.h>
+#include "xnnpack.h"
+#include "xnnpack/node-type.h"
+#include "xnnpack/operator.h"
+#include "xnnpack/requantization.h"
+#include "xnnpack/subgraph.h"
+#include "replicable_random_device.h"
 
 template <typename T> class BinaryTest : public ::testing::Test {
  protected:
@@ -35,6 +34,7 @@ template <typename T> class BinaryTest : public ::testing::Test {
     u8dist =
       std::uniform_int_distribution<int32_t>(std::numeric_limits<uint8_t>::min(), std::numeric_limits<uint8_t>::max());
     scale_dist = std::uniform_real_distribution<float>(0.1f, 5.0f);
+    s32dist = std::uniform_int_distribution<int32_t>(std::numeric_limits<int32_t>::min(), std::numeric_limits<int32_t>::max());
   }
 
   void SetUp() override
@@ -126,9 +126,11 @@ template <typename T> class BinaryTest : public ::testing::Test {
   std::uniform_real_distribution<float> scale_dist;
   std::uniform_int_distribution<int32_t> i8dist;
   std::uniform_int_distribution<int32_t> u8dist;
+  std::uniform_int_distribution<int32_t> s32dist;
 
-  float output_min = -std::numeric_limits<float>::infinity();
-  float output_max = std::numeric_limits<float>::infinity();
+
+  T output_min = std::numeric_limits<T>::min();
+  T output_max = std::numeric_limits<T>::max();
 
   std::vector<size_t> input1_dims;
   std::vector<size_t> input2_dims;

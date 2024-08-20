@@ -11,10 +11,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <fp16/fp16.h>
 #include "xnnpack.h"
 #include "xnnpack/allocator.h"
 #include "xnnpack/common.h"
 #include "xnnpack/compute.h"
+#include "xnnpack/config-types.h"
 #include "xnnpack/config.h"
 #include "xnnpack/log.h"
 #include "xnnpack/microfnptr.h"
@@ -22,9 +24,7 @@
 #include "xnnpack/operator-type.h"
 #include "xnnpack/operator.h"
 #include "xnnpack/params.h"
-
 #include "pthreadpool.h"
-#include <fp16/fp16.h>
 
 static xnn_status_t check_op_type(xnn_operator_t op,
                                   enum xnn_operator_type expected_type) {
@@ -257,9 +257,9 @@ enum xnn_status xnn_create_abs_nc_f16(
 {
   const struct xnn_unary_elementwise_config* f16_abs_config = xnn_init_f16_abs_config();
 
-  union xnn_f16_abs_params params;
-  if XNN_LIKELY(f16_abs_config != NULL && f16_abs_config->init.f16_abs != NULL) {
-    f16_abs_config->init.f16_abs(&params);
+  union xnn_f16_default_params params;
+  if XNN_LIKELY(f16_abs_config != NULL && f16_abs_config->init.f16_default != NULL) {
+    f16_abs_config->init.f16_default(&params);
   }
 
   return create_unary_elementwise_nc(
@@ -496,14 +496,9 @@ enum xnn_status xnn_create_convert_nc_f16_f32(
 {
   const struct xnn_unary_elementwise_config* f16_to_f32_cvt_config = xnn_init_f16_to_f32_cvt_config();
 
-  union xnn_f16_f32_cvt_params params;
-  if (f16_to_f32_cvt_config != NULL && f16_to_f32_cvt_config->init.f16_f32_cvt != NULL) {
-    f16_to_f32_cvt_config->init.f16_f32_cvt(&params);
-  }
-
   return create_unary_elementwise_nc(
     flags, f16_to_f32_cvt_config, /*rminmax_config=*/NULL,
-    &params, sizeof(params),
+    /*params=*/NULL, /*params_size=*/0,
     xnn_operator_type_convert_nc_f16_f32, convert_op_out);
 }
 
@@ -513,14 +508,9 @@ enum xnn_status xnn_create_convert_nc_f32_f16(
 {
   const struct xnn_unary_elementwise_config* f32_to_f16_cvt_config = xnn_init_f32_to_f16_cvt_config();
 
-  union xnn_f32_f16_cvt_params params;
-  if XNN_LIKELY(f32_to_f16_cvt_config != NULL && f32_to_f16_cvt_config->init.f32_f16_cvt != NULL) {
-    f32_to_f16_cvt_config->init.f32_f16_cvt(&params);
-  }
-
   return create_unary_elementwise_nc(
     flags, f32_to_f16_cvt_config, /*rminmax_config=*/NULL,
-    &params, sizeof(params),
+    /*params=*/NULL, /*params_size=*/0,
     xnn_operator_type_convert_nc_f32_f16, convert_op_out);
 }
 
@@ -986,6 +976,23 @@ enum xnn_status xnn_create_floor_nc_f32(
     xnn_operator_type_floor_nc_f32, floor_op_out);
 }
 
+enum xnn_status xnn_create_gelu_nc_f32(uint32_t flags,
+                                       xnn_operator_t* gelu_op_out) {
+  const struct xnn_unary_elementwise_config* f32_gelu_config =
+      xnn_init_f32_gelu_config();
+
+  union xnn_f32_default_params params;
+  if XNN_LIKELY (f32_gelu_config != NULL) {
+    if (f32_gelu_config->init.f32_default != NULL) {
+      f32_gelu_config->init.f32_default(&params);
+    }
+  }
+
+  return create_unary_elementwise_nc(
+      flags, f32_gelu_config, /*rminmax_config=*/NULL, &params, sizeof(params),
+      xnn_operator_type_gelu_nc_f32, gelu_op_out);
+}
+
 enum xnn_status xnn_create_hardswish_nc_f16(
     uint32_t flags,
     xnn_operator_t* hardswish_op_out)
@@ -1263,9 +1270,9 @@ enum xnn_status xnn_create_negate_nc_f16(
 {
   const struct xnn_unary_elementwise_config* f16_neg_config = xnn_init_f16_neg_config();
 
-  union xnn_f16_neg_params params;
-  if XNN_LIKELY(f16_neg_config != NULL && f16_neg_config->init.f16_neg != NULL) {
-    f16_neg_config->init.f16_neg(&params);
+  union xnn_f16_default_params params;
+  if XNN_LIKELY(f16_neg_config != NULL && f16_neg_config->init.f16_default != NULL) {
+    f16_neg_config->init.f16_default(&params);
   }
 
   return create_unary_elementwise_nc(
@@ -1482,7 +1489,7 @@ enum xnn_status xnn_reshape_abs_nc_f16(
     output_stride,
     /*log2_input_size=*/XNN_LOG2_SIZEOF_HALF,
     /*log2_output_size=*/XNN_LOG2_SIZEOF_HALF,
-    &abs_op->params.f16_abs, sizeof(abs_op->params.f16_abs),
+    &abs_op->params.f16_default, sizeof(abs_op->params.f16_default),
     threadpool);
 }
 
@@ -1672,7 +1679,7 @@ enum xnn_status xnn_reshape_convert_nc_f16_f32(
     channels, input_stride, output_stride,
     /*log2_input_size=*/XNN_LOG2_SIZEOF_HALF,
     /*log2_output_size=*/XNN_LOG2_SIZEOF_FLOAT,
-    &convert_op->params.f16_f32_cvt, sizeof(convert_op->params.f16_f32_cvt),
+    /*params=*/NULL, /*params_size=*/0,
     threadpool);
 }
 
@@ -1690,7 +1697,7 @@ enum xnn_status xnn_reshape_convert_nc_f32_f16(
     channels, input_stride, output_stride,
     /*log2_input_size=*/XNN_LOG2_SIZEOF_FLOAT,
     /*log2_output_size=*/XNN_LOG2_SIZEOF_HALF,
-    &convert_op->params.f32_f16_cvt, sizeof(convert_op->params.f32_f16_cvt),
+    /*params=*/NULL, /*params_size=*/0,
     threadpool);
 }
 
@@ -1829,15 +1836,19 @@ enum xnn_status xnn_reshape_convert_nc_f32_qp8(xnn_operator_t convert_op,
 
   convert_op->batch_size = batch_size;
 
-  const struct xnn_gemm_config* gemm_config = xnn_init_f32_gemm_nr2_config();
+  const struct xnn_gemm_config* gemm_config =
+      xnn_init_qp8_f32_qc4w_gemm_config();
+  const uint32_t mr_packed = batch_size == 1 ? 1 : gemm_config->mr_packed;
+  const uint32_t kr = UINT32_C(1) << gemm_config->log2_kr;
+  const uint32_t sr = UINT32_C(1) << gemm_config->log2_sr;
 
   convert_op->context.f32_qp8_convert = (struct f32_qp8_convert_context){
       .m = batch_size,
       .k = channels,
-      .mr = gemm_config->mr,
-      .kr = 1 << gemm_config->log2_kr,
-      .sr = 1 << gemm_config->log2_sr,
-      .lhs_stride = input_stride,
+      .mr = mr_packed,
+      .kr = kr,
+      .sr = sr,
+      .lhs_stride = input_stride * sizeof(float),
       .packq_ukernel = (xnn_x8_packq_f32qp8_ukernel_fn)
                            convert_op->unary_elementwise_config->ukernel,
   };
@@ -2088,6 +2099,53 @@ enum xnn_status xnn_reshape_elu_nc_f32(
     threadpool);
 }
 
+enum xnn_status xnn_create_exp_nc_f32(
+  uint32_t flags,
+  xnn_operator_t* exp_op_out)
+{
+  const struct xnn_unary_elementwise_config* f32_exp_config = xnn_init_f32_exp_config();
+
+  union xnn_f32_default_params params;
+  if XNN_LIKELY(f32_exp_config != NULL) {
+    if (f32_exp_config->init.f32_default != NULL) {
+      f32_exp_config->init.f32_default(&params);
+    }
+  }
+
+  return create_unary_elementwise_nc(
+    flags, f32_exp_config, /*rminmax_config=*/NULL,
+    &params, sizeof(params),
+    xnn_operator_type_exp_nc_f32, exp_op_out);
+}
+
+enum xnn_status xnn_reshape_exp_nc_f32(
+  xnn_operator_t exp_op,
+  size_t batch_size,
+  size_t channels,
+  size_t input_stride,
+  size_t output_stride,
+  pthreadpool_t threadpool)
+{
+  return reshape_unary_elementwise_nc(
+    exp_op, xnn_operator_type_exp_nc_f32,
+    batch_size,
+    channels, input_stride, output_stride,
+    /*log2_input_size=*/XNN_LOG2_SIZEOF_FLOAT,
+    /*log2_output_size=*/XNN_LOG2_SIZEOF_FLOAT,
+    &exp_op->params.f32_default, sizeof(exp_op->params.f32_default),
+    threadpool);
+}
+
+enum xnn_status xnn_setup_exp_nc_f32(
+  xnn_operator_t exp_op,
+  const float* input,
+  float* output)
+{
+  return setup_unary_elementwise_nc(
+    exp_op, xnn_operator_type_exp_nc_f32,
+    input, output);
+}
+
 enum xnn_status xnn_reshape_floor_nc_f16(
     xnn_operator_t floor_op,
     size_t batch_size,
@@ -2122,6 +2180,19 @@ enum xnn_status xnn_reshape_floor_nc_f32(
     /*log2_output_size=*/XNN_LOG2_SIZEOF_FLOAT,
     &floor_op->params.f32_rnd, sizeof(floor_op->params.f32_rnd),
     threadpool);
+}
+
+enum xnn_status xnn_reshape_gelu_nc_f32(xnn_operator_t gelu_op,
+                                        size_t batch_size, size_t channels,
+                                        size_t input_stride,
+                                        size_t output_stride,
+                                        pthreadpool_t threadpool) {
+  return reshape_unary_elementwise_nc(
+      gelu_op, xnn_operator_type_gelu_nc_f32, batch_size, channels,
+      input_stride, output_stride,
+      /*log2_input_size=*/XNN_LOG2_SIZEOF_FLOAT,
+      /*log2_output_size=*/XNN_LOG2_SIZEOF_FLOAT, &gelu_op->params.f32_default,
+      sizeof(gelu_op->params.f32_default), threadpool);
 }
 
 enum xnn_status xnn_reshape_hardswish_nc_f16(
@@ -2246,7 +2317,7 @@ enum xnn_status xnn_reshape_negate_nc_f16(
     channels, input_stride, output_stride,
     /*log2_input_size=*/XNN_LOG2_SIZEOF_HALF,
     /*log2_output_size=*/XNN_LOG2_SIZEOF_HALF,
-    &negate_op->params.f16_neg, sizeof(negate_op->params.f16_neg),
+    &negate_op->params.f16_default, sizeof(negate_op->params.f16_default),
     threadpool);
 }
 
@@ -2858,6 +2929,12 @@ enum xnn_status xnn_setup_floor_nc_f32(
     input, output);
 }
 
+enum xnn_status xnn_setup_gelu_nc_f32(xnn_operator_t gelu_op,
+                                      const float* input, float* output) {
+  return setup_unary_elementwise_nc(gelu_op, xnn_operator_type_gelu_nc_f32,
+                                    input, output);
+}
+
 enum xnn_status xnn_setup_hardswish_nc_f16(
     xnn_operator_t hardswish_op,
     const void* input,
@@ -3286,16 +3363,11 @@ enum xnn_status xnn_run_convert_nc_f16_f32(
 {
   const struct xnn_unary_elementwise_config* f16_to_f32_cvt_config = xnn_init_f16_to_f32_cvt_config();
 
-  union xnn_f16_f32_cvt_params params;
-  if XNN_LIKELY(f16_to_f32_cvt_config != NULL && f16_to_f32_cvt_config->init.f16_f32_cvt != NULL) {
-    f16_to_f32_cvt_config->init.f16_f32_cvt(&params);
-  }
-
   return run_unary_elementwise_nc(
     xnn_operator_type_convert_nc_f16_f32,
     channels, input_stride, output_stride, batch_size,
     input, output,
-    f16_to_f32_cvt_config, &params, sizeof(params),
+    f16_to_f32_cvt_config, /*params=*/NULL, /*params_size=*/0,
     /*log2_input_size=*/XNN_LOG2_SIZEOF_HALF,
     /*log2_output_size=*/XNN_LOG2_SIZEOF_FLOAT,
     flags,
@@ -3314,16 +3386,11 @@ enum xnn_status xnn_run_convert_nc_f32_f16(
 {
   const struct xnn_unary_elementwise_config* f32_to_f16_cvt_config = xnn_init_f32_to_f16_cvt_config();
 
-  union xnn_f32_f16_cvt_params params;
-  if XNN_LIKELY(f32_to_f16_cvt_config != NULL && f32_to_f16_cvt_config->init.f32_f16_cvt != NULL) {
-    f32_to_f16_cvt_config->init.f32_f16_cvt(&params);
-  }
-
   return run_unary_elementwise_nc(
     xnn_operator_type_convert_nc_f32_f16,
     channels, input_stride, output_stride, batch_size,
     input, output,
-    f32_to_f16_cvt_config, &params, sizeof(params),
+    f32_to_f16_cvt_config, /*params=*/NULL, /*params_size=*/0,
     /*log2_input_size=*/XNN_LOG2_SIZEOF_FLOAT,
     /*log2_output_size=*/XNN_LOG2_SIZEOF_HALF,
     flags,
@@ -3619,6 +3686,27 @@ enum xnn_status xnn_run_floor_nc_f32(
     /*log2_output_size=*/XNN_LOG2_SIZEOF_FLOAT,
     flags,
     threadpool);
+}
+
+enum xnn_status xnn_run_gelu_nc_f32(size_t channels, size_t input_stride,
+                                    size_t output_stride, size_t batch_size,
+                                    const float* input, float* output,
+                                    uint32_t flags, pthreadpool_t threadpool) {
+  const struct xnn_unary_elementwise_config* f32_gelu_config =
+      xnn_init_f32_gelu_config();
+
+  union xnn_f32_default_params params;
+  if XNN_LIKELY (f32_gelu_config != NULL) {
+    if (f32_gelu_config->init.f32_default != NULL) {
+      f32_gelu_config->init.f32_default(&params);
+    }
+  }
+
+  return run_unary_elementwise_nc(
+      xnn_operator_type_gelu_nc_f32, channels, input_stride, output_stride,
+      batch_size, input, output, f32_gelu_config, &params, sizeof(params),
+      /*log2_input_size=*/XNN_LOG2_SIZEOF_FLOAT,
+      /*log2_output_size=*/XNN_LOG2_SIZEOF_FLOAT, flags, threadpool);
 }
 
 enum xnn_status xnn_run_hardswish_nc_f32(

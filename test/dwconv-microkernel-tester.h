@@ -15,6 +15,7 @@
 #include <functional>
 #include <string>
 
+#include <gtest/gtest.h>
 #include "xnnpack.h"
 #include "xnnpack/aligned-allocator.h"
 #include "xnnpack/common.h"
@@ -23,8 +24,6 @@
 #include "xnnpack/microparams-init.h"
 #include "xnnpack/pack.h"
 #include "xnnpack/requantization.h"
-
-#include <gtest/gtest.h>
 
 class DWConvMicrokernelTester {
  public:
@@ -292,24 +291,3 @@ struct DWConvTestParams {
 };
 
 using DWConvTest = testing::TestWithParam<DWConvTestParams>;
-
-inline bool IsPrime(size_t n) {
-    if (n == 1 || n == 2) {
-      return true;
-    }
-    for (size_t k = 3; k * k <= n; k += 2) {
-      if (n % k == 0) {
-        return false;
-      }
-    }
-    return true;
-}
-
-inline size_t NextPrime(size_t n) {
-    n = (n + 1) | static_cast<size_t>(1);
-    while (!IsPrime(n)) {
-      n++;
-    }
-    return n;
-}
-

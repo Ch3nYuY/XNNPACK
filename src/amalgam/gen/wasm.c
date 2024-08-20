@@ -4108,6 +4108,85 @@ void xnn_f32_qc8w_gemm_minmax_ukernel_4x4__wasm(
   } while (nc != 0);
 }
 
+void xnn_f32_qs8_vcvt_ukernel__wasm_fmagic_u4(
+    size_t batch,
+    const float* input,
+    int8_t* output,
+    const union xnn_f32_qs8_cvt_params params[restrict XNN_MIN_ELEMENTS(1)])
+{
+  assert(batch != 0);
+  assert(batch % sizeof(float) == 0);
+  assert(input != NULL);
+  assert(output != NULL);
+
+  const float* i = input;
+  const float vscale = params->scalar.scale;
+  const float voutput_min_less_zero_point = (float) ((int32_t) params->scalar.output_min - (int32_t) params->scalar.output_zero_point);
+  const float voutput_max_less_zero_point = (float) ((int32_t) params->scalar.output_max - (int32_t) params->scalar.output_zero_point);
+  const float vmagic_bias = 12582912.0f;
+  const int32_t vmagic_bias_less_zero_point = INT32_C(0x4B400000) - (int32_t) params->scalar.output_zero_point;
+
+  for (; batch >= 4 * sizeof(float); batch -= 4 * sizeof(float)) {
+    float vx0 = i[0];
+    float vx1 = i[1];
+    float vx2 = i[2];
+    float vx3 = i[3];
+    i += 4;
+
+    vx0 *= vscale;
+    vx1 *= vscale;
+    vx2 *= vscale;
+    vx3 *= vscale;
+
+    vx0 = __builtin_wasm_max_f32(vx0, voutput_min_less_zero_point);
+    vx1 = __builtin_wasm_max_f32(vx1, voutput_min_less_zero_point);
+    vx2 = __builtin_wasm_max_f32(vx2, voutput_min_less_zero_point);
+    vx3 = __builtin_wasm_max_f32(vx3, voutput_min_less_zero_point);
+
+    vx0 = __builtin_wasm_min_f32(vx0, voutput_max_less_zero_point);
+    vx1 = __builtin_wasm_min_f32(vx1, voutput_max_less_zero_point);
+    vx2 = __builtin_wasm_min_f32(vx2, voutput_max_less_zero_point);
+    vx3 = __builtin_wasm_min_f32(vx3, voutput_max_less_zero_point);
+
+    vx0 += vmagic_bias;
+    vx1 += vmagic_bias;
+    vx2 += vmagic_bias;
+    vx3 += vmagic_bias;
+
+    int32_t vy0 = (int32_t) float_as_uint32(vx0);
+    int32_t vy1 = (int32_t) float_as_uint32(vx1);
+    int32_t vy2 = (int32_t) float_as_uint32(vx2);
+    int32_t vy3 = (int32_t) float_as_uint32(vx3);
+
+    vy0 -= vmagic_bias_less_zero_point;
+    vy1 -= vmagic_bias_less_zero_point;
+    vy2 -= vmagic_bias_less_zero_point;
+    vy3 -= vmagic_bias_less_zero_point;
+
+    output[0] = (int8_t) vy0;
+    output[1] = (int8_t) vy1;
+    output[2] = (int8_t) vy2;
+    output[3] = (int8_t) vy3;
+    output += 4;
+  }
+  if XNN_UNLIKELY(batch != 0) {
+    do {
+      float vx = *i++;
+      vx *= vscale;
+      vx = __builtin_wasm_max_f32(vx, voutput_min_less_zero_point);
+      vx = __builtin_wasm_min_f32(vx, voutput_max_less_zero_point);
+      vx += vmagic_bias;
+
+      int32_t vy = (int32_t) float_as_uint32(vx);
+      vy -= vmagic_bias_less_zero_point;
+
+      *output++ = (int8_t) vy;
+
+      batch -= sizeof(float);
+    } while (batch != 0);
+  }
+}
+
 void xnn_f32_qu8_vcvt_ukernel__wasm_fmagic_u4(
     size_t batch,
     const float* input,
@@ -4120,11 +4199,11 @@ void xnn_f32_qu8_vcvt_ukernel__wasm_fmagic_u4(
   assert(output != NULL);
 
   const float* i = input;
-  const float vscale = params->scalar_fmagic.scale;
-  const float voutput_min_less_zero_point = params->scalar_fmagic.output_min_less_zero_point;
-  const float voutput_max_less_zero_point = params->scalar_fmagic.output_max_less_zero_point;
-  const float vmagic_bias = params->scalar_fmagic.magic_bias;
-  const int32_t vmagic_bias_less_zero_point = params->scalar_fmagic.magic_bias_less_zero_point;
+  const float vscale = params->scalar.scale;
+  const float voutput_min_less_zero_point = (float) ((int32_t) params->scalar.output_min - (int32_t) params->scalar.output_zero_point);
+  const float voutput_max_less_zero_point = (float) ((int32_t) params->scalar.output_max - (int32_t) params->scalar.output_zero_point);
+  const float vmagic_bias = 12582912.0f;
+  const int32_t vmagic_bias_less_zero_point = INT32_C(0x4B400000) - (int32_t) params->scalar.output_zero_point;
 
   for (; batch >= 4 * sizeof(float); batch -= 4 * sizeof(float)) {
     float vx0 = i[0];
@@ -5370,20 +5449,21 @@ void xnn_f32_velu_ukernel__wasm_rr2_p6_u6(
   assert(input != NULL);
   assert(output != NULL);
 
-  const float vprescale = params->scalar_rr2_p6.prescale;
-  const float valpha = params->scalar_rr2_p6.alpha;
-  const float vbeta = params->scalar_rr2_p6.beta;
-  const float vmagic_bias = params->scalar_rr2_p6.magic_bias;
-  const float vlog2e = params->scalar_rr2_p6.log2e;
-  const float vsat_cutoff = params->scalar_rr2_p6.sat_cutoff;
-  const float vminus_ln2_hi = params->scalar_rr2_p6.minus_ln2_hi;
-  const float vminus_ln2_lo = params->scalar_rr2_p6.minus_ln2_lo;
-  const float vc6 = params->scalar_rr2_p6.c6;
-  const float vc5 = params->scalar_rr2_p6.c5;
-  const float vc4 = params->scalar_rr2_p6.c4;
-  const float vc3 = params->scalar_rr2_p6.c3;
-  const float vc2 = params->scalar_rr2_p6.c2;
-  const float vone = params->scalar_rr2_p6.one;
+  const float vsat_cutoff = -0x1.154246p+4f;
+  const float vmagic_bias = 0x1.8000FEp23f;
+  const float vlog2e = 0x1.715476p+0f;
+  const float vminus_ln2_hi = -0x1.62E440p-1f;
+  const float vminus_ln2_lo = 0x1.0105C6p-21f;
+  const float vc6 = 0x1.6b7338p-10f;
+  const float vc5 = 0x1.12278Ep-7f;
+  const float vc4 = 0x1.555716p-5f;
+  const float vc3 = 0x1.5554B0p-3f;
+  const float vc2 = 0x1.FFFFFEp-2f;
+  const float vone = 1.0f;
+
+  const float vprescale = params->scalar.prescale;
+  const float valpha = params->scalar.alpha;
+  const float vbeta = params->scalar.beta;
 
   for (; batch >= 6 * sizeof(float); batch -= 6 * sizeof(float)) {
     float vx0 = input[0];
@@ -5565,12 +5645,10 @@ void xnn_f32_vhswish_ukernel__wasm_u4(
   assert(input != NULL);
   assert(output != NULL);
 
-  const float vsixth = params->scalar.sixth;
-  const float vthree = params->scalar.three;
-  const float vsix = params->scalar.six;
+  const float vsixth = 0x1.555556p-3f;
+  const float vthree = 3.0f;
+  const float vsix = 6.0f;
   const float vzero = 0.0f;
-  assert(vthree == 3.0f);
-  assert(vsix == 6.0f);
 
   for (; batch >= 4 * sizeof(float); batch -= 4 * sizeof(float)) {
     float vx0 = input[0];

@@ -495,6 +495,39 @@ void MultiThreadingParameters(benchmark::internal::Benchmark* benchmark) {
   }
 #endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
 
+#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+  bool CheckAVX256SKX(benchmark::State& state) {
+    const xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+    if (hardware_config == nullptr || !hardware_config->use_x86_avx256skx) {
+      state.SkipWithError("no AVX256SKX extension");
+      return false;
+    }
+    return true;
+  }
+#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
+
+#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+  bool CheckAVX256VNNI(benchmark::State& state) {
+    const xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+    if (hardware_config == nullptr || !hardware_config->use_x86_avx256vnni) {
+      state.SkipWithError("no AVX256VNNI extension");
+      return false;
+    }
+    return true;
+  }
+#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
+
+#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+  bool CheckAVX256VNNIGFNI(benchmark::State& state) {
+    const xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+    if (hardware_config == nullptr || !hardware_config->use_x86_avx256vnnigfni) {
+      state.SkipWithError("no AVX256VNNIGFNI extension");
+      return false;
+    }
+    return true;
+  }
+#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
+
 #if XNN_ARCH_HEXAGON
   bool CheckHVX(benchmark::State& state) {
     const xnn_hardware_config* hardware_config = xnn_init_hardware_config();
@@ -527,6 +560,15 @@ void MultiThreadingParameters(benchmark::internal::Benchmark* benchmark) {
     return true;
   }
 
+  bool CheckWAsmUSDOT(benchmark::State& state) {
+    const xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+    if (hardware_config == nullptr || !hardware_config->use_wasm_usdot) {
+      state.SkipWithError("no WAsm USDOT support");
+      return false;
+    }
+    return true;
+  }
+
   bool CheckWAsmBLENDVPS(benchmark::State& state) {
     const xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     if (hardware_config == nullptr || !hardware_config->use_wasm_blendvps) {
@@ -537,20 +579,6 @@ void MultiThreadingParameters(benchmark::internal::Benchmark* benchmark) {
   }
 #endif  // XNN_ARCH_WASMRELAXEDSIMD
 
-
-#if XNN_PLATFORM_JIT
-
-CodeMemoryHelper::CodeMemoryHelper() {
-  status = xnn_allocate_code_memory(&buffer, XNN_DEFAULT_CODE_BUFFER_SIZE);
-}
-
-CodeMemoryHelper::~CodeMemoryHelper() {
-  if (status == xnn_status_success) {
-    xnn_release_code_memory(&buffer);
-  }
-}
-
-#endif  // XNN_PLATFORM_JIT
 
 }  // namespace utils
 }  // namespace benchmark

@@ -10,31 +10,26 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <functional>
+#include <iostream>
+#include <ostream>
 #include <string>
 
-#include "xnnpack/allocator.h"
+#include <gtest/gtest.h>
 #include "xnnpack/common.h"
-#include "xnnpack/gemm.h"
-#include "xnnpack/igemm.h"
-#include "xnnpack/isa-checks.h"
 #include "xnnpack/math.h"
 #include "xnnpack/microfnptr.h"
-#include "xnnpack/microparams-init.h"
 #include "xnnpack/pack.h"
-#include "xnnpack/ppmm.h"
 #include "xnnpack/requantization.h"
-
-#include <gtest/gtest.h>
-
-#if XNN_PLATFORM_JIT
-#include <vector>
-#include "xnnpack/post-operation.h"
-#endif  // XNN_PLATFORM_JIT
-
+#include "next_prime.h"
 
 class GemmMicrokernelTester {
  public:
+  GemmMicrokernelTester clone() const {
+    return *this;
+  }
+
   GemmMicrokernelTester& mr(size_t mr) {
     this->mr_ = mr;
     return *this;
@@ -206,15 +201,6 @@ class GemmMicrokernelTester {
     return this->zero_index_;
   }
 
-  GemmMicrokernelTester& extended_weights(bool extended_weights) {
-    this->extended_weights_ = extended_weights;
-    return *this;
-  }
-
-  bool extended_weights() const {
-    return this->extended_weights_;
-  }
-
   GemmMicrokernelTester& iterations(size_t iterations) {
     this->iterations_ = iterations;
     return *this;
@@ -240,6 +226,18 @@ class GemmMicrokernelTester {
 
   bool relu() const {
     return relu_;
+  }
+
+  GemmMicrokernelTester& mr_packed(size_t mr_packed) {
+    this->mr_packed_ = mr_packed;
+    return *this;
+  }
+
+  size_t mr_packed() const {
+    if (this->mr_packed_ == 0) {
+      return this->mr_;
+    }
+    return this->mr_packed_;
   }
 
   size_t nc_mod_nr() const {
@@ -400,77 +398,6 @@ class GemmMicrokernelTester {
             xnn_pack_weights_and_biases_fn pack,
             xnn_packed_stride_weights_and_biases_fn packed_stride);
 
-#if XNN_PLATFORM_JIT
-  void Test(
-    xnn_jit_gemm_code_generator_fn gemm_generator,
-    xnn_init_f16_minmax_params_fn init_params,
-    xnn_pack_f16_gemm_fn pack) const;
-  void Test(
-    xnn_jit_igemm_code_generator_fn igemm_generator,
-    xnn_init_f16_minmax_params_fn init_params,
-    xnn_pack_f16_igemm_fn pack) const;
-  void Test(
-    xnn_jit_gemm_code_generator_fn gemm_generator,
-    xnn_init_f32_minmax_params_fn init_params,
-    xnn_pack_f32_gemm_fn pack) const;
-  void Test(
-    xnn_jit_igemm_code_generator_fn igemm_generator,
-    xnn_init_f32_minmax_params_fn init_params,
-    xnn_pack_f32_igemm_fn pack) const;
-  void Test(
-    xnn_jit_gemm_code_generator_fn gemm_generator,
-    xnn_init_qs8_qc8w_conv_minmax_params_fn init_params,
-    xnn_pack_qs8_gemm_fn pack,
-    xnn_qs8_requantize_fn requantize) const;
-  void Test(
-    xnn_jit_igemm_code_generator_fn igemm_generator,
-    xnn_init_qs8_qc8w_conv_minmax_params_fn init_params,
-    xnn_pack_qs8_igemm_fn pack,
-    xnn_qs8_requantize_fn requantize) const;
-  void Test(
-    xnn_jit_gemm_code_generator_fn gemm_generator,
-    xnn_init_qs8_conv_minmax_params_fn init_params,
-    xnn_pack_qs8_gemm_fn pack,
-    xnn_qs8_requantize_fn requantize) const;
-  void Test(
-    xnn_jit_igemm_code_generator_fn igemm_generator,
-    xnn_init_qs8_conv_minmax_params_fn init_params,
-    xnn_pack_qs8_igemm_fn pack,
-    xnn_qs8_requantize_fn requantize) const;
-  void Test(
-    xnn_jit_gemm_code_generator_fn gemm_generator,
-    xnn_init_f32_minmax_params_fn init_params,
-    xnn_pack_f32_gemm_fn pack,
-    const std::vector<xnn_post_operation>& fused_operators) const;
-  void Test(
-    xnn_jit_igemm_code_generator_fn gemm_generator,
-    xnn_init_f32_minmax_params_fn init_params,
-    xnn_pack_f32_igemm_fn pack,
-    const std::vector<xnn_post_operation>& fused_operators) const;
-
-  // Test that JIT generated code matches assembly.
-  void Test(
-    xnn_jit_gemm_code_generator_fn gemm_generator,
-    xnn_init_f16_minmax_params_fn init_params,
-    xnn_pack_f16_gemm_fn pack,
-    xnn_f16_gemm_minmax_ukernel_fn gemm_minmax) const;
-  void Test(
-    xnn_jit_igemm_code_generator_fn igemm_generator,
-    xnn_init_f16_minmax_params_fn init_params,
-    xnn_pack_f16_igemm_fn pack,
-    xnn_f16_igemm_minmax_ukernel_fn igemm_minmax) const;
-  void Test(
-    xnn_jit_gemm_code_generator_fn gemm_generator,
-    xnn_init_f32_minmax_params_fn init_params,
-    xnn_pack_f32_gemm_fn pack,
-    xnn_f32_gemm_minmax_ukernel_fn gemm_minmax) const;
-  void Test(
-    xnn_jit_igemm_code_generator_fn igemm_generator,
-    xnn_init_f32_minmax_params_fn init_params,
-    xnn_pack_f32_igemm_fn pack,
-    xnn_f32_igemm_minmax_ukernel_fn igemm_minmax) const;
-#endif  // XNN_PLATFORM_JIT
-
  private:
   size_t mr_{1};
   size_t nr_{1};
@@ -490,20 +417,38 @@ class GemmMicrokernelTester {
   uint8_t qmax_{255};
   size_t a_offset_{0};
   size_t zero_index_{SIZE_MAX};
-  bool extended_weights_{false};
   size_t iterations_{15};
   bool known_nc_mod_nr_{true};
   bool relu_{false};
+  size_t mr_packed_{0};
+};
+
+enum class LoopStepType {
+  Linear,
+  NextPrime
 };
 
 struct LoopParams {
   LoopParams() = default;
-  explicit LoopParams(size_t from, size_t to, size_t step)
-      : is_set(true), from(from), to(to), step(step) {}
+  explicit LoopParams(size_t from, size_t to, size_t step, LoopStepType step_type)
+      : is_set(true), from(from), to(to), step(step), step_type(step_type) {}
   bool is_set = false;
   size_t from = 1;
   size_t to = 1;
   size_t step = 1;
+  LoopStepType step_type = LoopStepType::Linear;
+
+  size_t next(size_t n) const {
+    switch (step_type) {
+      case LoopStepType::Linear:
+        return n + step;
+      case LoopStepType::NextPrime:
+        return xnnpack::NextPrime(n + step);
+      default:
+        std::cerr << "Unknown loop step type " << static_cast<int>(step_type) << std::endl;
+        std::abort();
+    }
+  }
 };
 
 struct GemmTestParams {
@@ -516,28 +461,28 @@ struct GemmTestParams {
         isa_check(isa_check) {}
 
   // Setters for the loops over `k`, `m`, and `n`.
-  GemmTestParams& loop_k(size_t from, size_t to, size_t step = 1) {
-    loop_k_ = LoopParams(from, to, step);
+  GemmTestParams& loop_k(size_t from, size_t to, size_t step = 1, LoopStepType step_type = LoopStepType::NextPrime) {
+    loop_k_ = LoopParams(from, to, step, step_type);
     return *this;
   }
-  GemmTestParams& loop_m(size_t from, size_t to, size_t step = 1) {
-    loop_m_ = LoopParams(from, to, step);
+  GemmTestParams& loop_m(size_t from, size_t to, size_t step = 1, LoopStepType step_type = LoopStepType::Linear) {
+    loop_m_ = LoopParams(from, to, step, step_type);
     return *this;
   }
-  GemmTestParams& loop_n(size_t from, size_t to, size_t step = 1) {
-    loop_n_ = LoopParams(from, to, step);
+  GemmTestParams& loop_n(size_t from, size_t to, size_t step = 1, LoopStepType step_type = LoopStepType::NextPrime) {
+    loop_n_ = LoopParams(from, to, step, step_type);
     return *this;
   }
-  GemmTestParams& loop_zi(size_t from, size_t to, size_t step = 1) {
-    loop_zi_ = LoopParams(from, to, step);
+  GemmTestParams& loop_zi(size_t from, size_t to, size_t step = 1, LoopStepType step_type = LoopStepType::Linear) {
+    loop_zi_ = LoopParams(from, to, step, step_type);
     return *this;
   }
-  GemmTestParams& loop_bzp(size_t from, size_t to, size_t step = 1) {
-    loop_bzp_ = LoopParams(from, to, step);
+  GemmTestParams& loop_bzp(size_t from, size_t to, size_t step = 1, LoopStepType step_type = LoopStepType::Linear) {
+    loop_bzp_ = LoopParams(from, to, step, step_type);
     return *this;
   }
-  GemmTestParams& loop_bl(size_t from, size_t to, size_t step = 1) {
-    loop_bl_ = LoopParams(from, to, step);
+  GemmTestParams& loop_bl(size_t from, size_t to, size_t step = 1, LoopStepType step_type = LoopStepType::Linear) {
+    loop_bl_ = LoopParams(from, to, step, step_type);
     return *this;
   }
 
@@ -554,23 +499,3 @@ struct GemmTestParams {
 };
 
 using GemmTest = testing::TestWithParam<GemmTestParams>;
-
-inline bool IsPrime(size_t n) {
-    if (n == 1 || n == 2) {
-      return true;
-    }
-    for (size_t k = 3; k * k <= n; k += 2) {
-      if (n % k == 0) {
-        return false;
-      }
-    }
-    return true;
-}
-
-inline size_t NextPrime(size_t n) {
-    n = (n + 1) | static_cast<size_t>(1);
-    while (!IsPrime(n)) {
-      n++;
-    }
-    return n;
-}

@@ -10,17 +10,14 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "xnnpack.h"
-#include "xnnpack/aligned-allocator.h"
+#include <benchmark/benchmark.h>
+#include "bench/f16-vunary-benchmark.h"
+#include "bench/utils.h"
 #include "xnnpack/common.h"
 #include "xnnpack/microfnptr.h"
 #include "xnnpack/microparams-init.h"
 #include "xnnpack/microparams.h"
 #include "xnnpack/vunary.h"
-
-#include "bench/f16-vunary-benchmark.h"
-#include "bench/utils.h"
-#include <benchmark/benchmark.h>
 
 void f16_vhswish(benchmark::State& state, xnn_f16_vhswish_ukernel_fn ukernel,
               xnn_init_f16_hswish_params_fn init_params = nullptr,
@@ -36,13 +33,13 @@ void f16_vhswish(benchmark::State& state, xnn_f16_vhswish_ukernel_fn ukernel,
 #if XNN_ENABLE_ARM_FP16_VECTOR && (XNN_ARCH_ARM || XNN_ARCH_ARM64)
   BENCHMARK_CAPTURE(f16_vhswish, neonfp16arith_u8,
                     xnn_f16_vhswish_ukernel__neonfp16arith_u8,
-                    xnn_init_f16_hswish_fp16arith_params,
+                    /*init_params=*/nullptr,
                     benchmark::utils::CheckNEONFP16ARITH)
     ->Apply(benchmark::utils::UnaryElementwiseParameters<uint16_t, uint16_t>)
     ->UseRealTime();
   BENCHMARK_CAPTURE(f16_vhswish, neonfp16arith_u16,
                     xnn_f16_vhswish_ukernel__neonfp16arith_u16,
-                    xnn_init_f16_hswish_fp16arith_params,
+                    /*init_params=*/nullptr,
                     benchmark::utils::CheckNEONFP16ARITH)
     ->Apply(benchmark::utils::UnaryElementwiseParameters<uint16_t, uint16_t>)
     ->UseRealTime();
@@ -51,13 +48,13 @@ void f16_vhswish(benchmark::State& state, xnn_f16_vhswish_ukernel_fn ukernel,
 #if XNN_ARCH_X86 || XNN_ARCH_X86_64
   BENCHMARK_CAPTURE(f16_vhswish, f16c_u8,
                     xnn_f16_vhswish_ukernel__f16c_u8,
-                    xnn_init_f16_hswish_avx_params,
+                    /*init_params=*/nullptr,
                     benchmark::utils::CheckF16C)
     ->Apply(benchmark::utils::UnaryElementwiseParameters<uint16_t, uint16_t>)
     ->UseRealTime();
   BENCHMARK_CAPTURE(f16_vhswish, f16c_u16,
                     xnn_f16_vhswish_ukernel__f16c_u16,
-                    xnn_init_f16_hswish_avx_params,
+                    /*init_params=*/nullptr,
                     benchmark::utils::CheckF16C)
     ->Apply(benchmark::utils::UnaryElementwiseParameters<uint16_t, uint16_t>)
     ->UseRealTime();

@@ -7,13 +7,19 @@ load(
     "//:build_defs.bzl",
     "xnnpack_binary",
     "xnnpack_cc_library",
-    "xnnpack_simd_archs",
+    "xnnpack_kleidiai_defines",
     "xnnpack_simd_copts_for_arch",
+    "xnnpack_simd_f16_archs",
+    "xnnpack_simd_f32_archs",
+    "xnnpack_simd_s16_archs",
+    "xnnpack_simd_s32_archs",
+    "xnnpack_simd_s8_archs",
     "xnnpack_test_deps_for_library",
     "xnnpack_unit_test",
 )
 
 MICROKERNEL_TEST_DEPS = [
+    ":next_prime",
     ":replicable_random_device",
     "@FP16",
     "//:aligned_allocator",
@@ -42,7 +48,7 @@ OPERATOR_TEST_DEPS = [
     "//:allocator",
     "//:cache",
     "//:common",
-    "//:jit",
+    "//:internal",
     "//:math",
     "//:microkernel_configs",
     "//:microparams",
@@ -64,14 +70,21 @@ xnnpack_cc_library(
 )
 
 xnnpack_cc_library(
+    name = "next_prime",
+    testonly = True,
+    srcs = ["next_prime.cc"],
+    hdrs = ["next_prime.h"],
+    deps = xnnpack_test_deps_for_library(),
+)
+
+xnnpack_cc_library(
     name = "gemm_microkernel_tester",
     testonly = True,
     srcs = ["gemm-microkernel-tester.cc"],
     hdrs = ["gemm-microkernel-tester.h"],
     deps = MICROKERNEL_TEST_DEPS + xnnpack_test_deps_for_library() + [
         "//:XNNPACK",
-        "//:jit",
-        "//:post_operation",
+        "//:config_hdrs",
     ],
 )
 
@@ -161,7 +174,64 @@ xnnpack_cc_library(
         "//:isa_checks",
         "//:microkernels_h",
     ],
-) for arch in xnnpack_simd_archs()]
+) for arch in xnnpack_simd_f32_archs()]
+
+[xnnpack_unit_test(
+    name = "f16_simd_" + arch + "_test",
+    srcs = [
+        "f16-simd-" + arch + ".cc",
+    ],
+    copts = xnnpack_simd_copts_for_arch(arch),
+    deps = [
+        ":replicable_random_device",
+        "@FP16",
+        "//:common",
+        "//:isa_checks",
+        "//:microkernels_h",
+    ],
+) for arch in xnnpack_simd_f16_archs()]
+
+[xnnpack_unit_test(
+    name = "s16_simd_" + arch + "_test",
+    srcs = [
+        "s16-simd-" + arch + ".cc",
+    ],
+    copts = xnnpack_simd_copts_for_arch(arch),
+    deps = [
+        ":replicable_random_device",
+        "//:common",
+        "//:isa_checks",
+        "//:microkernels_h",
+    ],
+) for arch in xnnpack_simd_s16_archs()]
+
+[xnnpack_unit_test(
+    name = "s32_simd_" + arch + "_test",
+    srcs = [
+        "s32-simd-" + arch + ".cc",
+    ],
+    copts = xnnpack_simd_copts_for_arch(arch),
+    deps = [
+        ":replicable_random_device",
+        "//:common",
+        "//:isa_checks",
+        "//:microkernels_h",
+    ],
+) for arch in xnnpack_simd_s32_archs()]
+
+[xnnpack_unit_test(
+    name = "s8_simd_" + arch + "_test",
+    srcs = [
+        "s8-simd-" + arch + ".cc",
+    ],
+    copts = xnnpack_simd_copts_for_arch(arch),
+    deps = [
+        ":replicable_random_device",
+        "//:common",
+        "//:isa_checks",
+        "//:microkernels_h",
+    ],
+) for arch in xnnpack_simd_s8_archs()]
 
 ######################### Unit tests for micro-kernels #########################
 
@@ -191,6 +261,8 @@ xnnpack_cc_library(
     "f32_vabs",
     "f32_vclamp",
     "f32_velu",
+    "f32_vexp",
+    "f32_vgelu",
     "f32_vhswish",
     "f32_vlog",
     "f32_vlrelu",
@@ -227,6 +299,7 @@ xnnpack_cc_library(
     "f32_vadd",
     "f32_vadd_minmax",
     "f32_vadd_relu",
+    "f32_vcopysign",
     "f32_vdiv",
     "f32_vdiv_minmax",
     "f32_vdiv_relu",
@@ -245,6 +318,7 @@ xnnpack_cc_library(
     "qu8_vadd_minmax",
     "qu8_vmul_minmax_fp32",
     "qu8_vmul_minmax_rndnu",
+    "s32_vmul",
 ]]
 
 [xnnpack_unit_test(
@@ -266,9 +340,11 @@ xnnpack_cc_library(
     "f32_vaddc",
     "f32_vaddc_minmax",
     "f32_vaddc_relu",
+    "f32_vcopysignc",
     "f32_vdivc",
     "f32_vdivc_minmax",
     "f32_vdivc_relu",
+    "f32_vrcopysignc",
     "f32_vrdivc",
     "f32_vrdivc_minmax",
     "f32_vrdivc_relu",
@@ -290,6 +366,7 @@ xnnpack_cc_library(
     "qu8_vaddc_minmax",
     "qu8_vmulc_minmax_fp32",
     "qu8_vmulc_minmax_rndnu",
+    "s32_vmulc",
 ]]
 
 [xnnpack_unit_test(
@@ -449,31 +526,9 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
-    name = "f16_gemm_jit_test",
-    srcs = [
-        "f16-gemm-jit.cc",
-    ],
-    shard_count = 5,
-    deps = MICROKERNEL_TEST_DEPS + [
-        ":gemm_microkernel_tester",
-    ],
-)
-
-xnnpack_unit_test(
     name = "f16_gemm_minmax_test",
     srcs = [
         "f16-gemm-minmax.cc",
-    ],
-    shard_count = 5,
-    deps = MICROKERNEL_TEST_DEPS + [
-        ":gemm_microkernel_tester",
-    ],
-)
-
-xnnpack_unit_test(
-    name = "f16_igemm_jit_test",
-    srcs = [
-        "f16-igemm-jit.cc",
     ],
     shard_count = 5,
     deps = MICROKERNEL_TEST_DEPS + [
@@ -597,19 +652,6 @@ xnnpack_unit_test(
     shard_count = 10,
     deps = MICROKERNEL_TEST_DEPS + [
         ":gemm_microkernel_tester",
-    ],
-)
-
-xnnpack_unit_test(
-    name = "f32_igemm_jit_test",
-    srcs = [
-        "f32-igemm-jit.cc",
-    ],
-    shard_count = 10,
-    tags = ["not_run:arm"],
-    deps = MICROKERNEL_TEST_DEPS + [
-        ":gemm_microkernel_tester",
-        "//:jit",
     ],
 )
 
@@ -760,19 +802,6 @@ xnnpack_unit_test(
     shard_count = 10,
     deps = MICROKERNEL_TEST_DEPS + [
         ":gemm_microkernel_tester",
-    ],
-)
-
-xnnpack_unit_test(
-    name = "f32_gemm_jit_test",
-    srcs = [
-        "f32-gemm-jit.cc",
-    ],
-    shard_count = 10,
-    tags = ["not_run:arm"],
-    deps = MICROKERNEL_TEST_DEPS + [
-        ":gemm_microkernel_tester",
-        "//:jit",
     ],
 )
 
@@ -977,24 +1006,38 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
-    name = "qp8_f32_qc4w_gemm_minmax_test",
+    name = "qd8_f16_qb4w_gemm_minmax_test",
     timeout = "moderate",
     srcs = [
-        "qp8-f32-qc4w-gemm-minmax.cc",
+        "qd8-f16-qb4w-gemm-minmax.cc",
     ],
+    shard_count = 10,
     deps = MICROKERNEL_TEST_DEPS + [
         ":gemm_microkernel_tester",
     ],
 )
 
 xnnpack_unit_test(
-    name = "qs8_qc8w_gemm_jit_fp32_test",
+    name = "qd8_f32_qb4w_gemm_minmax_test",
+    timeout = "moderate",
     srcs = [
-        "qs8-qc8w-gemm-jit-fp32.cc",
+        "qd8-f32-qb4w-gemm-minmax.cc",
     ],
+    shard_count = 10,
     deps = MICROKERNEL_TEST_DEPS + [
         ":gemm_microkernel_tester",
-        "//:jit",
+    ],
+)
+
+xnnpack_unit_test(
+    name = "qp8_f32_qc4w_gemm_minmax_test",
+    timeout = "moderate",
+    srcs = [
+        "qp8-f32-qc4w-gemm-minmax.cc",
+    ],
+    defines = xnnpack_kleidiai_defines(),
+    deps = MICROKERNEL_TEST_DEPS + [
+        ":gemm_microkernel_tester",
     ],
 )
 
@@ -1037,17 +1080,6 @@ xnnpack_unit_test(
     shard_count = 10,
     deps = MICROKERNEL_TEST_DEPS + [
         ":gemm_microkernel_tester",
-    ],
-)
-
-xnnpack_unit_test(
-    name = "qs8_qc8w_igemm_jit_fp32_test",
-    srcs = [
-        "qs8-qc8w-igemm-jit-fp32.cc",
-    ],
-    deps = MICROKERNEL_TEST_DEPS + [
-        ":gemm_microkernel_tester",
-        "//:jit",
     ],
 )
 
@@ -1471,7 +1503,9 @@ xnnpack_binary(
     "ceiling_nc",
     "clamp_nc",
     "elu_nc",
+    "exp_nc",
     "floor_nc",
+    "gelu_nc",
     "hardswish_nc",
     "leaky_relu_nc",
     "log_nc",
@@ -1495,6 +1529,7 @@ xnnpack_binary(
 ) for operator in [
     "add_nd",
     "add_nd_eager",
+    "copysign_nd",
     "divide_nd",
     "divide_nd_eager",
     "maximum_nd",
@@ -1678,7 +1713,9 @@ xnnpack_unit_test(
         "fully-connected-nc.cc",
         "fully-connected-operator-tester.h",
     ],
-    deps = OPERATOR_TEST_DEPS,
+    deps = OPERATOR_TEST_DEPS + [
+        "//:microkernels_h",
+    ],
 )
 
 xnnpack_unit_test(
@@ -1929,7 +1966,9 @@ xnnpack_cc_library(
     "convert",
     "copy",
     "elu",
+    "exp",
     "floor",
+    "gelu",
     "hardswish",
     "leaky_relu",
     "log",
@@ -2006,6 +2045,7 @@ xnnpack_unit_test(
     ],
 ) for operator in [
     "add2",
+    "copysign",
     "divide2",
     "maximum2",
     "minimum2",
@@ -2204,6 +2244,7 @@ xnnpack_unit_test(
 
 xnnpack_unit_test(
     name = "fully_connected_test",
+    timeout = "moderate",
     srcs = [
         "fully-connected.cc",
     ],
@@ -2213,7 +2254,10 @@ xnnpack_unit_test(
         "//:XNNPACK",
         "//:aligned_allocator",
         "//:common",
+        "//:config_hdrs",
+        "//:internal",
         "//:math",
+        "//:microkernels_h",
         "//:node_type",
         "//:operators",
         "//:requantization",
@@ -2519,74 +2563,6 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
-    name = "jit_test",
-    srcs = [
-        "jit.cc",
-    ],
-    deps = [
-        "//:common",
-        "//:jit",
-        "//:memory",
-        "//:xnnpack_h",
-    ],
-)
-
-xnnpack_unit_test(
-    name = "aarch32_assembler_test",
-    srcs = [
-        "aarch32-assembler.cc",
-        "assembler-helpers.h",
-    ],
-    deps = [
-        ":replicable_random_device",
-        "//:common",
-        "//:jit",
-        "//:memory",
-        "//:microparams",
-        "//:microparams_init",
-        "//:xnnpack_h",
-    ],
-)
-
-xnnpack_unit_test(
-    name = "aarch64_assembler_test",
-    srcs = [
-        "aarch64-assembler.cc",
-        "assembler-helpers.h",
-    ],
-    deps = [
-        ":replicable_random_device",
-        "//:common",
-        "//:jit",
-        "//:memory",
-        "//:microparams",
-        "//:microparams_init",
-        "//:xnnpack_h",
-    ],
-)
-
-xnnpack_unit_test(
-    name = "wasm_assembler_test",
-    srcs = [
-        "wasm-assembler.cc",
-    ],
-    deps = [
-        "//:common",
-        "//:jit",
-        "//:memory",
-    ],
-)
-
-xnnpack_unit_test(
-    name = "code_cache_test",
-    srcs = ["code-cache.cc"],
-    deps = [
-        "//:XNNPACK",
-        "//:cache",
-    ],
-)
-
-xnnpack_unit_test(
     name = "weights_cache_test",
     srcs = ["weights-cache.cc"],
     deps = [
@@ -2620,7 +2596,6 @@ xnnpack_unit_test(
     deps = [
         "//:microkernel_configs",
         "//:operator_utils",
-        "//:params",
     ],
 )
 

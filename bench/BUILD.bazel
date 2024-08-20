@@ -28,7 +28,6 @@ MICROKERNEL_BENCHMARK_DEPS = [
     "//:common",
     "//:enable_assembly",
     "//:hardware_config",
-    "//:jit",
     "//:microkernels_h",
     "//:microparams_init",
     "//:microparams",
@@ -61,6 +60,7 @@ xnnpack_cc_library(
         "//:hardware_config",
         "//:memory",
         "//:params",
+        "//:xnnpack_h",
         "@com_google_benchmark//:benchmark",
     ] + select({
         "//:cpuinfo_enabled": ["@cpuinfo"],
@@ -153,7 +153,9 @@ xnnpack_benchmark(
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":gemm_benchmark",
         "//:isa_checks",
-    ] + xnnpack_if_kleidiai_enabled(["@KleidiAI//"]),
+    ] + xnnpack_if_kleidiai_enabled([
+        "@KleidiAI//kai/ukernels/matmul",
+    ]),
 )
 
 xnnpack_benchmark(
@@ -166,7 +168,6 @@ xnnpack_benchmark(
         "//:indirection",
         "//:microkernel_configs",
         "//:microkernel_utils",
-        "//:operators",
     ],
 )
 
@@ -198,7 +199,6 @@ xnnpack_benchmark(
     copts = xnnpack_optional_ruy_copts() + xnnpack_optional_gemmlowp_copts(),
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":gemm_benchmark",
-        "//:enable_jit",
         "//:isa_checks",
         "//:math",
     ] + xnnpack_optional_ruy_deps() + xnnpack_optional_gemmlowp_deps(),
@@ -398,7 +398,7 @@ xnnpack_benchmark(
     ],
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         "//:indirection",
-        "//:operators",
+        "//:math",
     ],
 )
 
@@ -410,7 +410,7 @@ xnnpack_benchmark(
     ],
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         "//:indirection",
-        "//:operators",
+        "//:math",
     ],
 )
 
@@ -503,13 +503,20 @@ xnnpack_benchmark(
     deps = MICROKERNEL_BENCHMARK_DEPS,
 )
 
+cc_library(
+    name = "spmm",
+    hdrs = ["spmm.h"],
+    deps = [
+        "@com_google_benchmark//:benchmark",
+    ],
+)
+
 xnnpack_benchmark(
     name = "f16_spmm_bench",
     srcs = [
         "f16-spmm.cc",
-        "spmm.h",
     ],
-    deps = MICROKERNEL_BENCHMARK_DEPS,
+    deps = MICROKERNEL_BENCHMARK_DEPS + [":spmm"],
 )
 
 [xnnpack_benchmark(
@@ -547,6 +554,7 @@ xnnpack_benchmark(
 ) for kernel in [
     "f32_vabs",
     "f32_velu",
+    "f32_vgelu",
     "f32_vhswish",
     "f32_vlog",
     "f32_vlrelu",
@@ -572,7 +580,7 @@ xnnpack_benchmark(
     ],
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         "//:indirection",
-        "//:operators",
+        "//:math",
     ],
 )
 
@@ -582,8 +590,7 @@ xnnpack_benchmark(
         "dconv.h",
         "f32-conv-hwc.cc",
     ],
-    deps = MICROKERNEL_BENCHMARK_DEPS + [
-    ],
+    deps = MICROKERNEL_BENCHMARK_DEPS,
 )
 
 xnnpack_benchmark(
@@ -592,9 +599,7 @@ xnnpack_benchmark(
         "dconv.h",
         "f16-conv-hwc2chw.cc",
     ],
-    deps = MICROKERNEL_BENCHMARK_DEPS + [
-        "//:operators",
-    ],
+    deps = MICROKERNEL_BENCHMARK_DEPS,
 )
 
 xnnpack_benchmark(
@@ -619,8 +624,7 @@ xnnpack_benchmark(
         "dconv.h",
         "f32-conv-hwc2chw.cc",
     ],
-    deps = MICROKERNEL_BENCHMARK_DEPS + [
-    ],
+    deps = MICROKERNEL_BENCHMARK_DEPS,
 )
 
 xnnpack_benchmark(
@@ -632,7 +636,6 @@ xnnpack_benchmark(
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         "//:indirection",
         "//:microkernel_utils",
-        "//:operators",
     ],
 )
 
@@ -645,7 +648,6 @@ xnnpack_benchmark(
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         "//:indirection",
         "//:microkernel_utils",
-        "//:operators",
     ],
 )
 
@@ -657,7 +659,6 @@ xnnpack_benchmark(
     ],
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         "//:indirection",
-        "//:operators",
     ],
 )
 
@@ -669,7 +670,6 @@ xnnpack_benchmark(
     ],
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         "//:indirection",
-        "//:operators",
     ],
 )
 
@@ -824,14 +824,6 @@ xnnpack_benchmark(
 )
 
 xnnpack_benchmark(
-    name = "f32_round_bench",
-    srcs = [
-        "f32-round.cc",
-    ],
-    deps = MICROKERNEL_BENCHMARK_DEPS,
-)
-
-xnnpack_benchmark(
     name = "f32_rsum_bench",
     srcs = [
         "f32-rsum.cc",
@@ -865,9 +857,9 @@ xnnpack_benchmark(
     name = "f32_spmm_bench",
     srcs = [
         "f32-spmm.cc",
-        "spmm.h",
     ],
     deps = MICROKERNEL_BENCHMARK_DEPS + [
+        ":spmm",
         ":spmm_benchmark",
     ],
 )
@@ -1066,7 +1058,7 @@ xnnpack_cc_library(
     hdrs = [
         "rsum-benchmark.h",
     ],
-    deps = MICROKERNEL_BENCHMARK_DEPS,
+    deps = MICROKERNEL_BENCHMARK_DEPS + ["@com_google_benchmark//:benchmark"],
 )
 
 xnnpack_cc_library(
@@ -1076,7 +1068,11 @@ xnnpack_cc_library(
         "gemm.h",
         "gemm-benchmark.h",
     ],
-    deps = MICROKERNEL_BENCHMARK_DEPS,
+    deps = MICROKERNEL_BENCHMARK_DEPS + [
+        "//:config_hdrs",
+        "//:math",
+        "@com_google_benchmark//:benchmark",
+    ],
 )
 
 xnnpack_cc_library(
@@ -1086,7 +1082,10 @@ xnnpack_cc_library(
         "spmm-benchmark.h",
     ],
     deps = MICROKERNEL_BENCHMARK_DEPS + [
+        ":spmm",
         "//:isa_checks",
+        "//:math",
+        "@com_google_benchmark//:benchmark",
     ],
 )
 
@@ -1194,19 +1193,6 @@ xnnpack_benchmark(
     deps = OPERATOR_BENCHMARK_DEPS + xnnpack_optional_tflite_deps(),
 )
 
-############################### Other benchmarks ###############################
-
-xnnpack_benchmark(
-    name = "jit_bench",
-    srcs = ["jit.cc"],
-    deps = OPERATOR_BENCHMARK_DEPS + [
-        "//:jit",
-        "//:memory",
-        "//:microkernels_h",
-        "//:microparams",
-    ],
-)
-
 ############################### E2E benchmarks ###############################
 
 xnnpack_benchmark(
@@ -1254,13 +1240,9 @@ xnnpack_benchmark(
         "//:microkernel_configs",
         "//:models_h",
         "//models:fp32_mobilenet_v1",
-        "//models:fp32_mobilenet_v1_jit",
         "//models:fp32_mobilenet_v2",
-        "//models:fp32_mobilenet_v2_jit",
         "//models:fp32_mobilenet_v3_large",
-        "//models:fp32_mobilenet_v3_large_jit",
         "//models:fp32_mobilenet_v3_small",
-        "//models:fp32_mobilenet_v3_small_jit",
     ],
 )
 
@@ -1275,13 +1257,9 @@ xnnpack_benchmark(
         "//:microkernel_configs",
         "//:models_h",
         "//models:fp32_mobilenet_v1",
-        "//models:fp32_mobilenet_v1_jit",
         "//models:fp32_mobilenet_v2",
-        "//models:fp32_mobilenet_v2_jit",
         "//models:fp32_mobilenet_v3_large",
-        "//models:fp32_mobilenet_v3_large_jit",
         "//models:fp32_mobilenet_v3_small",
-        "//models:fp32_mobilenet_v3_small_jit",
     ],
 )
 
@@ -1355,7 +1333,6 @@ xnnpack_benchmark(
     deps = [
         ":bench_utils",
         "//:XNNPACK",
-        "//:aligned_allocator",
         "//:models_h",
         "//models:fp16_mobilenet_v1",
         "//models:fp16_mobilenet_v2",
@@ -1366,14 +1343,9 @@ xnnpack_benchmark(
         "//models:fp16_sparse_mobilenet_v3_large",
         "//models:fp16_sparse_mobilenet_v3_small",
         "//models:fp32_mobilenet_v1",
-        "//models:fp32_mobilenet_v1_jit",
         "//models:fp32_mobilenet_v2",
-        "//models:fp32_mobilenet_v2_jit",
         "//models:fp32_mobilenet_v3_large",
-        "//models:fp32_mobilenet_v3_large_jit",
         "//models:fp32_mobilenet_v3_small",
-        "//models:fp32_mobilenet_v3_small_fused",
-        "//models:fp32_mobilenet_v3_small_jit",
         "//models:fp32_sparse_mobilenet_v1",
         "//models:fp32_sparse_mobilenet_v2",
         "//models:fp32_sparse_mobilenet_v3_large",
@@ -1386,6 +1358,5 @@ xnnpack_benchmark(
         "//models:qu8_mobilenet_v2",
         "//models:qu8_mobilenet_v3_large",
         "//models:qu8_mobilenet_v3_small",
-        "@pthreadpool",
     ],
 )

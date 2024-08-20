@@ -10,17 +10,14 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "xnnpack.h"
-#include "xnnpack/aligned-allocator.h"
+#include <benchmark/benchmark.h>
+#include "bench/f32-vunary-benchmark.h"
+#include "bench/utils.h"
 #include "xnnpack/common.h"
 #include "xnnpack/microfnptr.h"
 #include "xnnpack/microparams-init.h"
 #include "xnnpack/microparams.h"
 #include "xnnpack/vunary.h"
-
-#include "bench/f32-vunary-benchmark.h"
-#include "bench/utils.h"
-#include <benchmark/benchmark.h>
 
 void f32_vrndu(benchmark::State& state, xnn_f32_vround_ukernel_fn ukernel,
               xnn_init_f32_rnd_params_fn init_params = nullptr,
@@ -63,12 +60,12 @@ void f32_vrndu(benchmark::State& state, xnn_f32_vround_ukernel_fn ukernel,
 #if XNN_ARCH_X86 || XNN_ARCH_X86_64
   BENCHMARK_CAPTURE(f32_vrndu, sse2_u4,
                     xnn_f32_vrndu_ukernel__sse2_u4,
-                    xnn_init_f32_rnd_sse2_params)
+                    /*init_params=*/nullptr)
     ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
     ->UseRealTime();
   BENCHMARK_CAPTURE(f32_vrndu, sse2_u8,
                     xnn_f32_vrndu_ukernel__sse2_u8,
-                    xnn_init_f32_rnd_sse2_params)
+                    /*init_params=*/nullptr)
     ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
     ->UseRealTime();
   BENCHMARK_CAPTURE(f32_vrndu, sse41_u4,
@@ -85,13 +82,13 @@ void f32_vrndu(benchmark::State& state, xnn_f32_vround_ukernel_fn ukernel,
     ->UseRealTime();
   BENCHMARK_CAPTURE(f32_vrndu, avx_u8,
                     xnn_f32_vrndu_ukernel__avx_u8,
-                    xnn_init_f32_rnd_avx_params,
+                    /*init_params=*/nullptr,
                     benchmark::utils::CheckAVX)
     ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
     ->UseRealTime();
   BENCHMARK_CAPTURE(f32_vrndu, avx_u16,
                     xnn_f32_vrndu_ukernel__avx_u16,
-                    xnn_init_f32_rnd_avx_params,
+                    /*init_params=*/nullptr,
                     benchmark::utils::CheckAVX)
     ->Apply(benchmark::utils::UnaryElementwiseParameters<float, float>)
     ->UseRealTime();
