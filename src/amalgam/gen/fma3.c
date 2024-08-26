@@ -3818,7 +3818,11 @@ void xnn_f32_gemm_minmax_ukernel_5x16__fma3_broadcast_prfm(
       const __m256 va4 = _mm256_broadcast_ss(a4);
       a4 += 1;
 
-      xnn_prefetch_to_l1(w + 1024);
+      // xnn_prefetch_to_l1(w + 1024);
+      // __builtin_prefetch(w + 1024, 0, 0);
+      // __builtin_prefetch(w + 1024, 0, 1);
+      __builtin_prefetch(w + 1024, 0, 2);
+      // __builtin_prefetch(w + 1024, 0, 3);
       const __m256 vb01234567 = _mm256_load_ps(w);
       const __m256 vb89ABCDEF = _mm256_load_ps(w + 8);
       w += 16;

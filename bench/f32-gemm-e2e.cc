@@ -1322,6 +1322,54 @@ BENCHMARK_FP32_END2END_JIT(f32_gemm_6x8_6x8__jit_aarch64_neonfma_cortex_a75_prfm
       /*mr=*/5, /*nr=*/16, /*log2_kr=*/0, /*log2_sr=*/0,
       benchmark::utils::CheckFMA3);
   }
+  static void f32_gemm_5x16__fma3_broadcast_prfm_0(benchmark::State& state, models::ExecutionPlanFactory model) {
+    GEMMEnd2EndBenchmark(state, model,
+      xnn_f32_gemm_minmax_ukernel_5x16__fma3_broadcast_prfm_0,
+      xnn_f32_igemm_minmax_ukernel_5x16__fma3_broadcast,
+      xnn_f32_gemm_minmax_ukernel_1x16__fma3_broadcast,
+      xnn_f32_igemm_minmax_ukernel_1x16__fma3_broadcast,
+      nullptr /* gemm_relu */, nullptr /* igemm_relu */, nullptr /* gemm1_relu */, nullptr /* igemm1_relu */,
+      nullptr /* gemm */, nullptr /* igemm */, nullptr /* gemm1 */, nullptr /* igemm1 */,
+      xnn_init_f32_minmax_avx_params,
+      /*mr=*/5, /*nr=*/16, /*log2_kr=*/0, /*log2_sr=*/0,
+      benchmark::utils::CheckFMA3);
+  }
+  static void f32_gemm_5x16__fma3_broadcast_prfm_1(benchmark::State& state, models::ExecutionPlanFactory model) {
+    GEMMEnd2EndBenchmark(state, model,
+      xnn_f32_gemm_minmax_ukernel_5x16__fma3_broadcast_prfm_1,
+      xnn_f32_igemm_minmax_ukernel_5x16__fma3_broadcast,
+      xnn_f32_gemm_minmax_ukernel_1x16__fma3_broadcast,
+      xnn_f32_igemm_minmax_ukernel_1x16__fma3_broadcast,
+      nullptr /* gemm_relu */, nullptr /* igemm_relu */, nullptr /* gemm1_relu */, nullptr /* igemm1_relu */,
+      nullptr /* gemm */, nullptr /* igemm */, nullptr /* gemm1 */, nullptr /* igemm1 */,
+      xnn_init_f32_minmax_avx_params,
+      /*mr=*/5, /*nr=*/16, /*log2_kr=*/0, /*log2_sr=*/0,
+      benchmark::utils::CheckFMA3);
+  }
+  static void f32_gemm_5x16__fma3_broadcast_prfm_2(benchmark::State& state, models::ExecutionPlanFactory model) {
+    GEMMEnd2EndBenchmark(state, model,
+      xnn_f32_gemm_minmax_ukernel_5x16__fma3_broadcast_prfm_2,
+      xnn_f32_igemm_minmax_ukernel_5x16__fma3_broadcast,
+      xnn_f32_gemm_minmax_ukernel_1x16__fma3_broadcast,
+      xnn_f32_igemm_minmax_ukernel_1x16__fma3_broadcast,
+      nullptr /* gemm_relu */, nullptr /* igemm_relu */, nullptr /* gemm1_relu */, nullptr /* igemm1_relu */,
+      nullptr /* gemm */, nullptr /* igemm */, nullptr /* gemm1 */, nullptr /* igemm1 */,
+      xnn_init_f32_minmax_avx_params,
+      /*mr=*/5, /*nr=*/16, /*log2_kr=*/0, /*log2_sr=*/0,
+      benchmark::utils::CheckFMA3);
+  }
+  static void f32_gemm_5x16__fma3_broadcast_prfm_3(benchmark::State& state, models::ExecutionPlanFactory model) {
+    GEMMEnd2EndBenchmark(state, model,
+      xnn_f32_gemm_minmax_ukernel_5x16__fma3_broadcast_prfm_3,
+      xnn_f32_igemm_minmax_ukernel_5x16__fma3_broadcast,
+      xnn_f32_gemm_minmax_ukernel_1x16__fma3_broadcast,
+      xnn_f32_igemm_minmax_ukernel_1x16__fma3_broadcast,
+      nullptr /* gemm_relu */, nullptr /* igemm_relu */, nullptr /* gemm1_relu */, nullptr /* igemm1_relu */,
+      nullptr /* gemm */, nullptr /* igemm */, nullptr /* gemm1 */, nullptr /* igemm1 */,
+      xnn_init_f32_minmax_avx_params,
+      /*mr=*/5, /*nr=*/16, /*log2_kr=*/0, /*log2_sr=*/0,
+      benchmark::utils::CheckFMA3);
+  }
   static void f32_gemm_5x16_unrolling_prefetch__fma3_broadcast(benchmark::State& state, models::ExecutionPlanFactory model) {
     GEMMEnd2EndBenchmark(state, model,
       xnn_f32_gemm_minmax_ukernel_5x16_unrolling_prefetch__fma3_broadcast,
@@ -1583,6 +1631,10 @@ BENCHMARK_FP32_END2END_JIT(f32_gemm_6x8_6x8__jit_aarch64_neonfma_cortex_a75_prfm
   BENCHMARK_FP32_END2END(f32_gemm_4x16__fma3_broadcast);
   BENCHMARK_FP32_END2END(f32_gemm_5x16__fma3_broadcast);
   BENCHMARK_FP32_END2END(f32_gemm_5x16__fma3_broadcast_prfm);
+  BENCHMARK_FP32_END2END(f32_gemm_5x16__fma3_broadcast_prfm_0);
+  BENCHMARK_FP32_END2END(f32_gemm_5x16__fma3_broadcast_prfm_1);
+  BENCHMARK_FP32_END2END(f32_gemm_5x16__fma3_broadcast_prfm_2);
+  BENCHMARK_FP32_END2END(f32_gemm_5x16__fma3_broadcast_prfm_3);
   BENCHMARK_FP32_END2END(f32_gemm_5x16_unrolling_prefetch__fma3_broadcast);
   BENCHMARK_FP32_END2END(f32_gemm_5x16_unrolling_8_prefetch__fma3_broadcast);
 
