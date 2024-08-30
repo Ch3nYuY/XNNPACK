@@ -12,9 +12,10 @@
 #include <immintrin.h>
 
 #include "xnnpack/gemm.h"
+#include "xnnpack/prefetch.h"
 
 
-void xnn_f32_gemm_minmax_ukernel_5x16__fma3_u2_broadcast(
+void xnn_f32_gemm_minmax_ukernel_5x16__fma3_u2_broadcast_prfm(
     size_t mr,
     size_t nc,
     size_t kc,
@@ -89,6 +90,7 @@ void xnn_f32_gemm_minmax_ukernel_5x16__fma3_u2_broadcast(
         __m256 va4 = _mm256_broadcast_ss(a4);
         a4 += 1;
 
+        xnn_prefetch_to_l1(w + 1024);
         __m256 vb01234567 = _mm256_load_ps(w);
         __m256 vb89ABCDEF = _mm256_load_ps(w + 8);
         w += 16;

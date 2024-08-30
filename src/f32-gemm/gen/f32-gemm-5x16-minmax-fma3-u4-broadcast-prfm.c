@@ -12,9 +12,10 @@
 #include <immintrin.h>
 
 #include "xnnpack/gemm.h"
+#include "xnnpack/prefetch.h"
 
 
-void xnn_f32_gemm_minmax_ukernel_5x16__fma3_u2_broadcast(
+void xnn_f32_gemm_minmax_ukernel_5x16__fma3_u4_broadcast_prfm(
     size_t mr,
     size_t nc,
     size_t kc,
@@ -77,7 +78,7 @@ void xnn_f32_gemm_minmax_ukernel_5x16__fma3_u2_broadcast(
 
     size_t k = kc;
     do {
-      if (k > 2 * sizeof(float)){
+      if (k > 4 * sizeof(float)){
         __m256 va0 = _mm256_broadcast_ss(a0);
         a0 += 1;
         __m256 va1 = _mm256_broadcast_ss(a1);
@@ -89,6 +90,7 @@ void xnn_f32_gemm_minmax_ukernel_5x16__fma3_u2_broadcast(
         __m256 va4 = _mm256_broadcast_ss(a4);
         a4 += 1;
 
+        xnn_prefetch_to_l1(w + 1024);
         __m256 vb01234567 = _mm256_load_ps(w);
         __m256 vb89ABCDEF = _mm256_load_ps(w + 8);
         w += 16;
@@ -133,8 +135,62 @@ void xnn_f32_gemm_minmax_ukernel_5x16__fma3_u2_broadcast(
         vacc4x89ABCDEF = _mm256_fmadd_ps(va4, vb89ABCDEF, vacc4x89ABCDEF);
 
         k -= sizeof(float);
+        va0 = _mm256_broadcast_ss(a0);
+        a0 += 1;
+        va1 = _mm256_broadcast_ss(a1);
+        a1 += 1;
+        va2 = _mm256_broadcast_ss(a2);
+        a2 += 1;
+        va3 = _mm256_broadcast_ss(a3);
+        a3 += 1;
+        va4 = _mm256_broadcast_ss(a4);
+        a4 += 1;
+
+        vb01234567 = _mm256_load_ps(w);
+        vb89ABCDEF = _mm256_load_ps(w + 8);
+        w += 16;
+
+        vacc0x01234567 = _mm256_fmadd_ps(va0, vb01234567, vacc0x01234567);
+        vacc1x01234567 = _mm256_fmadd_ps(va1, vb01234567, vacc1x01234567);
+        vacc2x01234567 = _mm256_fmadd_ps(va2, vb01234567, vacc2x01234567);
+        vacc3x01234567 = _mm256_fmadd_ps(va3, vb01234567, vacc3x01234567);
+        vacc4x01234567 = _mm256_fmadd_ps(va4, vb01234567, vacc4x01234567);
+        vacc0x89ABCDEF = _mm256_fmadd_ps(va0, vb89ABCDEF, vacc0x89ABCDEF);
+        vacc1x89ABCDEF = _mm256_fmadd_ps(va1, vb89ABCDEF, vacc1x89ABCDEF);
+        vacc2x89ABCDEF = _mm256_fmadd_ps(va2, vb89ABCDEF, vacc2x89ABCDEF);
+        vacc3x89ABCDEF = _mm256_fmadd_ps(va3, vb89ABCDEF, vacc3x89ABCDEF);
+        vacc4x89ABCDEF = _mm256_fmadd_ps(va4, vb89ABCDEF, vacc4x89ABCDEF);
+
+        k -= sizeof(float);
+        va0 = _mm256_broadcast_ss(a0);
+        a0 += 1;
+        va1 = _mm256_broadcast_ss(a1);
+        a1 += 1;
+        va2 = _mm256_broadcast_ss(a2);
+        a2 += 1;
+        va3 = _mm256_broadcast_ss(a3);
+        a3 += 1;
+        va4 = _mm256_broadcast_ss(a4);
+        a4 += 1;
+
+        vb01234567 = _mm256_load_ps(w);
+        vb89ABCDEF = _mm256_load_ps(w + 8);
+        w += 16;
+
+        vacc0x01234567 = _mm256_fmadd_ps(va0, vb01234567, vacc0x01234567);
+        vacc1x01234567 = _mm256_fmadd_ps(va1, vb01234567, vacc1x01234567);
+        vacc2x01234567 = _mm256_fmadd_ps(va2, vb01234567, vacc2x01234567);
+        vacc3x01234567 = _mm256_fmadd_ps(va3, vb01234567, vacc3x01234567);
+        vacc4x01234567 = _mm256_fmadd_ps(va4, vb01234567, vacc4x01234567);
+        vacc0x89ABCDEF = _mm256_fmadd_ps(va0, vb89ABCDEF, vacc0x89ABCDEF);
+        vacc1x89ABCDEF = _mm256_fmadd_ps(va1, vb89ABCDEF, vacc1x89ABCDEF);
+        vacc2x89ABCDEF = _mm256_fmadd_ps(va2, vb89ABCDEF, vacc2x89ABCDEF);
+        vacc3x89ABCDEF = _mm256_fmadd_ps(va3, vb89ABCDEF, vacc3x89ABCDEF);
+        vacc4x89ABCDEF = _mm256_fmadd_ps(va4, vb89ABCDEF, vacc4x89ABCDEF);
+
+        k -= sizeof(float);
       }
-    } while (k > 2 * sizeof(float));
+    } while (k > 4 * sizeof(float));
 
     do {
       const __m256 va0 = _mm256_broadcast_ss(a0);

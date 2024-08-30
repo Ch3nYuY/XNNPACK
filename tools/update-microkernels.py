@@ -315,6 +315,8 @@ def main(args):
 
       subdir = os.path.relpath(root, root_dir)
       filepath = os.path.join(subdir, name)
+      if os.name == 'nt':
+        filepath = filepath.replace('\\', '/')
       temp_filepaths = []
 
       # Build microkernel name -> microkernel filepath mapping
